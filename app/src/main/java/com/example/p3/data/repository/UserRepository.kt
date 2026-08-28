@@ -8,5 +8,8 @@ class UserRepository(private val apiService: ApiService) {
     suspend fun getUser(id: String) = apiService.getUser(id)
     suspend fun createUser(user: User) = apiService.createUser(user)
     suspend fun updateUser(id: String, user: User) = apiService.updateUser(id, user)
+
+    suspend fun getUserByEmail(email: String) = apiService.getUserByEmail(email)
+
     suspend fun deleteUser(id: String) = apiService.deleteUser(id)
 }

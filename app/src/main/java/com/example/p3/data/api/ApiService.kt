@@ -12,6 +12,9 @@ interface ApiService {
     @GET("item/{id}")
     suspend fun getItem(@Path("id") id: String): Item
 
+    @GET("user")
+    suspend fun getUserByEmail(@Query("email") email: String): List<User>
+
     @POST("item")
     suspend fun createItem(@Body item: Item): Item
 

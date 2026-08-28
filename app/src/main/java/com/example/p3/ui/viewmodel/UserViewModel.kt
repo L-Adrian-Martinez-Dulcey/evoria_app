@@ -21,6 +21,13 @@ class UserViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _loginResult = MutableStateFlow<User?>(null)
+    val loginResult: StateFlow<User?> = _loginResult
+
+    private val _loginError = MutableStateFlow<String?>(null)
+    val loginError: StateFlow<String?> = _loginError
+
+
     init {
         fetchUsers()
     }
@@ -72,4 +79,33 @@ class UserViewModel : ViewModel() {
             }
         }
     }
+
+    fun loginUser(email: String, password: String) {
+        viewModelScope.launch {
+            try {
+                val users = repository.getUserByEmail(email)
+
+                if (users.isEmpty()) {
+                    _loginError.value = "Usuario no encontrado"
+                    _loginResult.value = null
+                    return@launch
+                }
+
+                val user = users.first()
+
+                if (user.password == password) {
+                    _loginResult.value = user
+                    _loginError.value = null
+                } else {
+                    _loginError.value = "Contraseña incorrecta"
+                    _loginResult.value = null
+                }
+
+            } catch (e: Exception) {
+                _loginError.value = "Error de conexión"
+                _loginResult.value = null
+            }
+        }
+    }
+
 }
