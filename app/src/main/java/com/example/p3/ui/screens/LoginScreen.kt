@@ -32,13 +32,12 @@ import androidx.navigation.NavController
 
 
 @Composable
-fun LoginScreen(navController: NavController)
+fun LoginScreen(navController: NavController, userViewModel: UserViewModel)
  {
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var mensaje by remember { mutableStateOf("") }
-    val userViewModel: UserViewModel = viewModel()
     val loginResult by userViewModel.loginResult.collectAsState()
     val loginError by userViewModel.loginError.collectAsState()
 

@@ -1,10 +1,27 @@
 package com.example.p3.data.api
 
 import com.example.p3.data.model.Item
+import com.example.p3.data.model.Event
 import com.example.p3.data.model.User
 import retrofit2.http.*
 
 interface ApiService {
+    // Evoria: MockAPI solo dispone del recurso /item; se utiliza como /events.
+    @GET("item")
+    suspend fun getEvents(): List<Event>
+
+    @GET("item/{id}")
+    suspend fun getEvent(@Path("id") id: String): Event
+
+    @POST("item")
+    suspend fun createEvent(@Body event: Event): Event
+
+    @PUT("item/{id}")
+    suspend fun updateEvent(@Path("id") id: String, @Body event: Event): Event
+
+    @DELETE("item/{id}")
+    suspend fun deleteEvent(@Path("id") id: String)
+
     // Item CRUD
     @GET("item")
     suspend fun getItems(): List<Item>
