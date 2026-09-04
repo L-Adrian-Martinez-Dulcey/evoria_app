@@ -35,13 +35,5 @@ fun HomeScreen(navController: NavController) {
         ) {
             Text("Ver usuarios")
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = { navController.navigate("items") }
-        ) {
-            Text("Ver items")
-        }
     }
 }

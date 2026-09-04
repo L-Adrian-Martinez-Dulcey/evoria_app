@@ -4,17 +4,16 @@ import com.google.gson.annotations.SerializedName
 
 /** El recurso remoto sigue llamándose `item`, pero en la app representa un evento. */
 data class Event(
-    // MockAPI exposes the item identifier as `name` for this resource.
-    @SerializedName("name") val id: String? = null,
+    @SerializedName("id") val id: String? = null,
     @SerializedName("creatorId") val creatorId: String = "",
-    @SerializedName("title") val title: String = "",
+    @SerializedName("name") val title: String = "",
     @SerializedName("description") val description: String = "",
     @SerializedName("date") val date: String = "",
     @SerializedName("time") val time: String = "",
     @SerializedName("place") val place: String = "",
     @SerializedName("category") val category: String = "",
     @SerializedName("availableSlots") val availableSlots: Int = 0,
-    @SerializedName("coverImage") val coverImage: String = "",
+    @SerializedName("avatar") val coverImage: String = "",
     @SerializedName("createdAt") val createdAt: String = "",
     @SerializedName("registrations") val registrations: List<Registration> = emptyList(),
     @SerializedName("reviews") val reviews: List<Review> = emptyList(),

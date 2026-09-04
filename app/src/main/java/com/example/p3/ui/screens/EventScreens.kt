@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -88,7 +89,7 @@ private fun EventCard(event: Event, onClick: () -> Unit) {
                     model = event.coverImage,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(90.dp)
+                        .size(130.dp) // even bigger
                         .clip(MaterialTheme.shapes.medium),
                     contentScale = ContentScale.Crop
                 )
@@ -97,17 +98,17 @@ private fun EventCard(event: Event, onClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = event.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp),
+                    fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = event.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
