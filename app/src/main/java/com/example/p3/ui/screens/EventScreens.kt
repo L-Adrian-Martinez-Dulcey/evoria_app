@@ -17,6 +17,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
@@ -59,7 +62,12 @@ fun EventHomeScreen(viewModel: EventViewModel, navController: NavController) {
 @Composable private fun EventCard(event: Event, onClick: () -> Unit) {
     ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            if (event.coverImage.isNotBlank()) AsyncImage(event.coverImage, null, Modifier.fillMaxWidth().height(130.dp))
+            if (event.coverImage.isNotBlank()) AsyncImage(
+                event.coverImage,
+                null,
+                Modifier.fillMaxWidth().aspectRatio(1f),
+                contentScale = ContentScale.Crop,
+            )
             Text(event.title, style = MaterialTheme.typography.titleLarge)
             Text("${event.date} · ${event.time}")
             Text("${event.category} · ${event.place}")
@@ -89,7 +97,12 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
     Scaffold(topBar = { TopAppBar(title = { Text("Detalle del evento") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                if (event.coverImage.isNotBlank()) AsyncImage(event.coverImage, null, Modifier.fillMaxWidth().height(200.dp))
+                if (event.coverImage.isNotBlank()) AsyncImage(
+                    event.coverImage,
+                    null,
+                    Modifier.fillMaxWidth().aspectRatio(1f),
+                    contentScale = ContentScale.Crop,
+                )
                 Text(event.title, style = MaterialTheme.typography.headlineMedium)
                 Text(event.description)
                 DetailLine("Fecha", event.date); DetailLine("Hora", event.time); DetailLine("Lugar", event.place); DetailLine("Categoría", event.category); DetailLine("Cupos", event.availableSlots.toString())
@@ -142,13 +155,28 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
             DateField(date) { date = it }; TimeField(time) { time = it }
             AppField(place, { place = it }, "Lugar"); CategoryField(category) { category = it }; AppField(slots, { slots = it }, "Cupos disponibles", KeyboardType.Number)
             OutlinedButton({ imagePicker.launch(arrayOf("image/*")) }, Modifier.fillMaxWidth()) { Text(if (image.isBlank()) "Seleccionar imagen del evento" else "Cambiar imagen del evento") }
-            if (image.isNotBlank()) AsyncImage(image, "Imagen del evento", Modifier.fillMaxWidth().height(140.dp))
+            if (image.isNotBlank()) AsyncImage(
+                image,
+                "Imagen del evento",
+                Modifier.fillMaxWidth().aspectRatio(1f),
+                contentScale = ContentScale.Crop,
+            )
             Button(onClick = { viewModel.save(Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.trim(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList())) { navController.popBackStack() } }, modifier = Modifier.fillMaxWidth()) { Text("Guardar") }
         }
     }
 }
 
-@Composable private fun AppField(value: String, change: (String) -> Unit, label: String, keyboard: KeyboardType = KeyboardType.Text, single: Boolean = true) { OutlinedTextField(value, change, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), singleLine = single, keyboardOptions = KeyboardOptions(keyboardType = keyboard)) }
+@Composable private fun AppField(value: String, change: (String) -> Unit, label: String, keyboard: KeyboardType = KeyboardType.Text, single: Boolean = true, readOnly: Boolean = false) {
+    OutlinedTextField(
+        value,
+        change,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = single,
+        readOnly = readOnly,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+    )
+}
 
 @Composable private fun DateField(value: String, onValue: (String) -> Unit) { val context = LocalContext.current; OutlinedButton(onClick = { val c = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }; DatePickerDialog(context, { _, y, m, d -> onValue(String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)) }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).apply { datePicker.minDate = c.timeInMillis }.show() }, modifier = Modifier.fillMaxWidth()) { Text(if (value.isBlank()) "Seleccionar fecha" else "Fecha: $value") } }
 @Composable private fun TimeField(value: String, onValue: (String) -> Unit) { val context = LocalContext.current; OutlinedButton(onClick = { val c = Calendar.getInstance(); TimePickerDialog(context, { _, h, m -> onValue(String.format(Locale.US, "%02d:%02d", h, m)) }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show() }, modifier = Modifier.fillMaxWidth()) { Text(if (value.isBlank()) "Seleccionar hora" else "Hora: $value") } }
@@ -169,8 +197,26 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { selected -> runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }; avatar = selected.toString() } }
     Scaffold(topBar = { TopAppBar(title = { Text("Mi perfil") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding -> Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         profileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (avatar.isNotBlank()) AsyncImage(avatar, null, Modifier.size(96.dp)); OutlinedButton({ imagePicker.launch(arrayOf("image/*")) }) { Text("Seleccionar foto") }; AppField(name, { name = it }, "Nombre"); AppField(email, { email = it }, "Email"); AppField(phone, { phone = it }, "Teléfono"); AppField(city, { city = it }, "Ciudad")
-        Button({ userViewModel.updateProfile(user.copy(name = name, email = email, phone = phone, city = city, avatar = avatar)) { editing = false } }, Modifier.fillMaxWidth()) { Text("Guardar perfil") }
+        if (avatar.isNotBlank()) AsyncImage(
+            avatar,
+            "Foto de perfil",
+            Modifier
+                .size(120.dp)
+                .aspectRatio(1f)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop,
+        )
+        if (editing) OutlinedButton({ imagePicker.launch(arrayOf("image/*")) }) { Text("Seleccionar foto") }
+        AppField(name, { name = it }, "Nombre", readOnly = !editing)
+        AppField(email, { email = it }, "Email", readOnly = !editing)
+        AppField(phone, { phone = it }, "Teléfono", readOnly = !editing)
+        AppField(city, { city = it }, "Ciudad", readOnly = !editing)
+        if (editing) {
+            Button({ userViewModel.updateProfile(user.copy(name = name, email = email, phone = phone, city = city, avatar = avatar)) { editing = false } }, Modifier.fillMaxWidth()) { Text("Guardar perfil") }
+            TextButton({ editing = false; name = user.name; email = user.email; phone = user.phone; city = user.city; avatar = user.avatar.orEmpty() }, Modifier.fillMaxWidth()) { Text("Cancelar") }
+        } else {
+            Button({ editing = true }, Modifier.fillMaxWidth()) { Text("Actualizar perfil") }
+        }
         TextButton({ userViewModel.logout { navController.navigate("login") { popUpTo("home") { inclusive = true } } } }, Modifier.fillMaxWidth()) { Text("Cerrar sesión") }
     } }
 }

@@ -14,6 +14,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -43,13 +49,13 @@ private fun EvoriaApp() {
     NavHost(navController, startDestination = "login") {
         composable("login") { LoginScreen(navController, users) }
         composable("home") {
-            user?.let { AppScaffold(navController) { EventHomeScreen(events, navController) } }
+            user?.let { current -> AppScaffold(current, navController) { EventHomeScreen(events, navController) } }
         }
         composable("my_events") {
-            user?.let { current -> AppScaffold(navController) { MyEventsScreen(current, events, navController) } }
+            user?.let { current -> AppScaffold(current, navController) { MyEventsScreen(current, events, navController) } }
         }
         composable("profile") {
-            user?.let { current -> AppScaffold(navController) { ProfileScreen(current, users, navController) } }
+            user?.let { current -> AppScaffold(current, navController) { ProfileScreen(current, users, navController) } }
         }
         composable("event_detail/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
             user?.let { current ->
@@ -69,7 +75,7 @@ private fun EvoriaApp() {
 }
 
 @Composable
-private fun AppScaffold(navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
+private fun AppScaffold(user: User, navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
     val tabs = listOf("home" to "Inicio", "my_events" to "Mis eventos", "profile" to "Perfil")
     Scaffold(bottomBar = {
         NavigationBar {
@@ -80,7 +86,19 @@ private fun AppScaffold(navController: androidx.navigation.NavHostController, co
                 NavigationBarItem(
                     selected = destination?.hierarchy?.any { it.route == route } == true,
                     onClick = { navController.navigate(route) { launchSingleTop = true } },
-                    icon = { Icon(icon, label) }, label = { Text(label) }
+                    icon = {
+                        if (route == "profile" && !user.avatar.isNullOrBlank()) {
+                            AsyncImage(
+                                user.avatar,
+                                "Foto de perfil",
+                                Modifier.size(24.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Icon(icon, label)
+                        }
+                    },
+                    label = { Text(label) }
                 )
             }
         }
