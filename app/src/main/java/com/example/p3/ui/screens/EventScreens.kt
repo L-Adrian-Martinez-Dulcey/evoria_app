@@ -2,12 +2,16 @@
 
 package com.example.p3.ui.screens
 
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -18,7 +22,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,7 +35,6 @@ import androidx.compose.ui.platform.LocalContext
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
-import android.net.Uri
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.p3.data.model.Event
@@ -59,19 +64,54 @@ fun EventHomeScreen(viewModel: EventViewModel, navController: NavController) {
     }
 }
 
-@Composable private fun EventCard(event: Event, onClick: () -> Unit) {
-    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            if (event.coverImage.isNotBlank()) AsyncImage(
-                event.coverImage,
-                null,
-                Modifier.fillMaxWidth().aspectRatio(1f),
-                contentScale = ContentScale.Crop,
-            )
-            Text(event.title, style = MaterialTheme.typography.titleLarge)
-            Text("${event.date} · ${event.time}")
-            Text("${event.category} · ${event.place}")
-            Text("${event.availableSlots} cupos disponibles", color = MaterialTheme.colorScheme.primary)
+@Composable
+private fun EventCard(event: Event, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (event.coverImage.isNotBlank()) {
+                AsyncImage(
+                    model = event.coverImage,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(90.dp)
+                        .clip(MaterialTheme.shapes.medium),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = event.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
         }
     }
 }
