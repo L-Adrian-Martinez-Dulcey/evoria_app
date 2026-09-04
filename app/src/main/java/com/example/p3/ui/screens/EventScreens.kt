@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -24,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.net.Uri
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.p3.data.model.Event
@@ -45,7 +48,7 @@ fun EventHomeScreen(viewModel: EventViewModel, navController: NavController) {
             else -> LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 itemsIndexed(state.events, key = { index, event -> event.id ?: "event-$index" }) { _, event ->
                     EventCard(event) {
-                        event.id?.let { navController.navigate("event_detail/$it") }
+                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
                     }
                 }
             }
@@ -68,10 +71,19 @@ fun EventHomeScreen(viewModel: EventViewModel, navController: NavController) {
 @Composable
 fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
+    LaunchedEffect(eventId) {
+        viewModel.loadEvent(eventId)
+    }
     val event = state.events.firstOrNull { it.id == eventId }
     var confirmDelete by remember { mutableStateOf(false) }
     var showReview by remember { mutableStateOf(false) }
-    if (event == null) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Evento no encontrado") }; return }
+    if (event == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (state.error != null) Text(state.error!!)
+            else CircularProgressIndicator()
+        }
+        return
+    }
     val isCreator = event.creatorId == user.id
     val isRegistered = event.registrations.any { it.userId == user.id }
     Scaffold(topBar = { TopAppBar(title = { Text("Detalle del evento") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding ->
@@ -101,6 +113,7 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
 @Composable
 fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState(); val existing = state.events.firstOrNull { it.id == eventId }
+    val canEdit = existing == null || existing.creatorId == user.id
     val context = LocalContext.current
     var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }; var description by remember(existing?.id) { mutableStateOf(existing?.description.orEmpty()) }
     var date by remember(existing?.id) { mutableStateOf(existing?.date.orEmpty()) }; var time by remember(existing?.id) { mutableStateOf(existing?.time.orEmpty()) }
@@ -110,8 +123,20 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
         runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         image = selected.toString()
     } }
+    if (eventId != null && existing != null && !canEdit) {
+        LaunchedEffect(eventId) { navController.popBackStack() }
+        return
+    }
     Scaffold(topBar = { TopAppBar(title = { Text(if (existing == null) "Crear evento" else "Editar evento") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding ->
-        Column(Modifier.padding(padding).padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .imePadding(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             AppField(title, { title = it }, "Título"); AppField(description, { description = it }, "Descripción", single = false)
             DateField(date) { date = it }; TimeField(time) { time = it }

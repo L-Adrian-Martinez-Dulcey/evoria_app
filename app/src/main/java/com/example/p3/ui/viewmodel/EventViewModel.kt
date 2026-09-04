@@ -37,6 +37,19 @@ class EventViewModel : ViewModel() {
             .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = "No fue posible cargar eventos: ${it.message}") }
     }
 
+    fun loadEvent(id: String) = viewModelScope.launch {
+        runCatching { repository.getEvent(id) }
+            .onSuccess { event ->
+                _uiState.value = _uiState.value.copy(
+                    events = _uiState.value.events
+                        .filterNot { it.id == event.id }
+                        .plus(event),
+                    error = null,
+                )
+            }
+            .onFailure { _uiState.value = _uiState.value.copy(error = "No fue posible cargar el evento: ${it.message}") }
+    }
+
     fun save(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
         val validation = validate(event)
         if (validation != null) { _uiState.value = _uiState.value.copy(error = validation); return@launch }

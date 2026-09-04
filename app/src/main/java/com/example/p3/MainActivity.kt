@@ -1,6 +1,7 @@
 package com.example.p3
 
 import android.os.Bundle
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -51,7 +52,14 @@ private fun EvoriaApp() {
             user?.let { current -> AppScaffold(navController) { ProfileScreen(current, users, navController) } }
         }
         composable("event_detail/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
-            user?.let { current -> EventDetailScreen(requireNotNull(it.arguments?.getString("eventId")), current, events, navController) }
+            user?.let { current ->
+                EventDetailScreen(
+                    Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
+                    current,
+                    events,
+                    navController,
+                )
+            }
         }
         composable("event_form") { user?.let { current -> EventFormScreen(null, current, events, navController) } }
         composable("event_form/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
