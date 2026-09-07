@@ -77,30 +77,42 @@ private fun EvoriaApp() {
 @Composable
 private fun AppScaffold(user: User, navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
     val tabs = listOf("home" to "Inicio", "my_events" to "Mis eventos", "profile" to "Perfil")
-    Scaffold(bottomBar = {
-        NavigationBar {
-            val backStack by navController.currentBackStackEntryAsState()
-            val destination = backStack?.destination
-            tabs.forEach { (route, label) ->
-                val icon = when (route) { "home" -> Icons.Default.Home; "my_events" -> Icons.Default.CalendarMonth; else -> Icons.Default.AccountCircle }
-                NavigationBarItem(
-                    selected = destination?.hierarchy?.any { it.route == route } == true,
-                    onClick = { navController.navigate(route) { launchSingleTop = true } },
-                    icon = {
-                        if (route == "profile" && !user.avatar.isNullOrBlank()) {
-                            AsyncImage(
-                                user.avatar,
-                                "Foto de perfil",
-                                Modifier.size(24.dp).clip(CircleShape),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            Icon(icon, label)
-                        }
-                    },
-                    label = { Text(label) }
-                )
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val backStack by navController.currentBackStackEntryAsState()
+                val destination = backStack?.destination
+                tabs.forEach { (route, label) ->
+                    val icon = when (route) {
+                        "home" -> Icons.Default.Home
+                        "my_events" -> Icons.Default.CalendarMonth
+                        else -> Icons.Default.AccountCircle
+                    }
+                    NavigationBarItem(
+                        selected = destination?.hierarchy?.any { it.route == route } == true,
+                        onClick = { navController.navigate(route) { launchSingleTop = true } },
+                        icon = {
+                            if (route == "profile" && !user.avatar.isNullOrBlank()) {
+                                AsyncImage(
+                                    user.avatar,
+                                    "Foto de perfil",
+                                    Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Icon(icon, label)
+                            }
+                        },
+                        label = { Text(label) },
+                    )
+                }
             }
         }
-    }) { padding -> androidx.compose.foundation.layout.Box(Modifier.padding(padding)) { content() } }
+    ) { padding ->
+        androidx.compose.foundation.layout.Box(Modifier.padding(padding)) {
+            content()
+        }
+    }
 }
