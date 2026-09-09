@@ -46,7 +46,20 @@ private fun EvoriaApp() {
     val users: UserViewModel = viewModel()
     val events: EventViewModel = viewModel()
     val user by users.currentUser.collectAsState()
-    NavHost(navController, startDestination = "login") {
+    val onboardingDone by users.isOnboardingCompleted.collectAsState()
+
+    NavHost(
+        navController,
+        startDestination = if (onboardingDone) "login" else "onboarding"
+    ) {
+        composable("onboarding") {
+            OnboardingScreen(onFinish = {
+                users.completeOnboarding()
+                navController.navigate("login") {
+                    popUpTo("onboarding") { inclusive = true }
+                }
+            })
+        }
         composable("login") { LoginScreen(navController, users) }
         composable("home") {
             user?.let { current -> AppScaffold(current, navController) { EventHomeScreen(events, navController) } }

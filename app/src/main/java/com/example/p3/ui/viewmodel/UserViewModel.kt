@@ -9,6 +9,8 @@ import com.example.p3.data.repository.UserRepository
 import com.example.p3.data.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class UserViewModel(application: Application) : AndroidViewModel(application) {
@@ -33,10 +35,23 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError
 
+    private val _isOnboardingCompleted = MutableStateFlow(false)
+    val isOnboardingCompleted = _isOnboardingCompleted.asStateFlow()
 
     init {
         fetchUsers()
         restoreSession()
+        observeOnboarding()
+    }
+
+    private fun observeOnboarding() = viewModelScope.launch {
+        sessionManager.isOnboardingCompleted.collectLatest {
+            _isOnboardingCompleted.value = it
+        }
+    }
+
+    fun completeOnboarding() = viewModelScope.launch {
+        sessionManager.saveOnboardingCompleted()
     }
 
     fun fetchUsers() {
