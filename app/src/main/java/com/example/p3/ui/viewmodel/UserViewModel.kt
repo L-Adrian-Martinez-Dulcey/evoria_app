@@ -20,7 +20,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users
 
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(value = false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
     private val _error = MutableStateFlow<String?>(null)
@@ -153,7 +153,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                     _loginResult.value = null
                 }
 
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _loginError.value = "Error de conexión"
                 _loginResult.value = null
             }

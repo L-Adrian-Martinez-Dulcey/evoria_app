@@ -99,43 +99,31 @@ fun OnboardingScreen(
 
         // Botón Omitir
         if (pagerState.currentPage < pages.lastIndex) {
-
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(
-                        top = 30.dp,
-                        end = 20.dp
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Text(
-                    text = "Omitir",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.width(5.dp))
-
-                Icon(
-                    imageVector = Icons.Default.SkipNext,
-                    contentDescription = "Omitir",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // Área clickeable para Omitir
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 15.dp, end = 10.dp)
-                    .size(width = 100.dp, height = 50.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .padding(top = 20.dp, end = 10.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { onFinish() }
-            )
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Omitir",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.SkipNext,
+                        contentDescription = "Omitir",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
 
         Column(
@@ -238,7 +226,7 @@ fun OnboardingScreen(
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                        text = "Registrarse",
+                        text = "Entrar",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )

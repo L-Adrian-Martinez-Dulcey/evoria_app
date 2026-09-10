@@ -2,32 +2,29 @@
 
 package com.example.p3.ui.screens
 
-import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,12 +33,18 @@ import androidx.compose.ui.platform.LocalContext
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.p3.data.model.Event
 import com.example.p3.data.model.User
 import com.example.p3.ui.viewmodel.EventViewModel
 import com.example.p3.ui.viewmodel.UserViewModel
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -135,6 +138,9 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
     }
     val isCreator = event.creatorId == user.id
     val isRegistered = event.registrations.any { it.userId == user.id }
+    var qrBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var qrError by remember { mutableStateOf<String?>(null) }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Detalle del evento") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding ->
         LazyColumn(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
@@ -147,6 +153,42 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
                 Text(event.title, style = MaterialTheme.typography.headlineMedium)
                 Text(event.description)
                 DetailLine("Fecha", event.date); DetailLine("Hora", event.time); DetailLine("Lugar", event.place); DetailLine("Categoría", event.category); DetailLine("Cupos", event.availableSlots.toString())
+                
+                Spacer(Modifier.height(8.dp))
+                
+                Button(
+                    onClick = {
+                        if (event.place.isBlank()) {
+                            qrError = "El evento no tiene una ubicación disponible."
+                        } else {
+                            qrError = null
+                            qrBitmap = generateQrCode("https://www.google.com/maps/search/?api=1&query=${URLEncoder.encode(event.place, StandardCharsets.UTF_8.toString())}")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                ) {
+                    Icon(Icons.Default.QrCode, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Generar QR de ubicación")
+                }
+
+                qrError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+                qrBitmap?.let { bitmap ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                        Text("QR de Ubicación (Google Maps)", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(8.dp))
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = "Código QR de ubicación",
+                            modifier = Modifier.size(200.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
                 if (isCreator) Row {
                     OutlinedButton({ navController.navigate("event_form/${event.id}") }) { Icon(Icons.Default.Edit, null); Text(" Editar") }
                     Spacer(Modifier.width(8.dp)); OutlinedButton({ confirmDelete = true }) { Icon(Icons.Default.Delete, null); Text(" Eliminar") }
@@ -221,7 +263,44 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
 
 @Composable private fun DateField(value: String, onValue: (String) -> Unit) { val context = LocalContext.current; OutlinedButton(onClick = { val c = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }; DatePickerDialog(context, { _, y, m, d -> onValue(String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)) }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).apply { datePicker.minDate = c.timeInMillis }.show() }, modifier = Modifier.fillMaxWidth()) { Text(if (value.isBlank()) "Seleccionar fecha" else "Fecha: $value") } }
 @Composable private fun TimeField(value: String, onValue: (String) -> Unit) { val context = LocalContext.current; OutlinedButton(onClick = { val c = Calendar.getInstance(); TimePickerDialog(context, { _, h, m -> onValue(String.format(Locale.US, "%02d:%02d", h, m)) }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show() }, modifier = Modifier.fillMaxWidth()) { Text(if (value.isBlank()) "Seleccionar hora" else "Hora: $value") } }
-@Composable private fun CategoryField(value: String, onValue: (String) -> Unit) { var expanded by remember { mutableStateOf(false) }; val options = listOf("Arte", "Deporte", "Tecnología", "Música", "Gastronomía", "Educación", "Otra"); ExposedDropdownMenuBox(expanded, { expanded = it }) { OutlinedTextField(value, {}, readOnly = true, label = { Text("Categoría") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }, modifier = Modifier.menuAnchor().fillMaxWidth()); ExposedDropdownMenu(expanded, { expanded = false }) { options.forEach { option -> DropdownMenuItem({ Text(option) }, { onValue(if (option == "Otra") "" else option); expanded = false }) } } }; if (value.isBlank()) AppField(value, onValue, "Escribe otra categoría") }
+@Composable private fun CategoryField(value: String, onValue: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf("Arte", "Deporte", "Tecnología", "Música", "Gastronomía", "Educación", "Otra")
+    val isOther = value.isNotBlank() && !options.contains(value)
+    var showOtherField by remember { mutableStateOf(isOther) }
+
+    ExposedDropdownMenuBox(expanded, { expanded = it }) {
+        OutlinedTextField(
+            value = if (showOtherField) "Otra" else value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Categoría") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded, { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        if (option == "Otra") {
+                            showOtherField = true
+                            onValue("")
+                        } else {
+                            showOtherField = false
+                            onValue(option)
+                        }
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+    if (showOtherField) {
+        Spacer(modifier = Modifier.height(8.dp))
+        AppField(value, onValue, "Escribe la categoría personalizada")
+    }
+}
 
 @Composable
 fun MyEventsScreen(user: User, viewModel: EventViewModel, navController: NavController) {
@@ -266,3 +345,19 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
 @Composable private fun ReviewDialog(onDismiss: () -> Unit, save: (Int, String) -> Unit) { var rating by remember { mutableStateOf("") }; var comment by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Calificar evento") }, text = { Column { AppField(rating, { rating = it }, "Puntaje (1-5)", KeyboardType.Number); AppField(comment, { comment = it }, "Comentario", single = false) } }, confirmButton = { TextButton({ save(rating.toIntOrNull() ?: 0, comment) }) { Text("Publicar") } }, dismissButton = { TextButton(onDismiss) { Text("Cancelar") } }) }
 private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
 private fun hasFinished(date: String) = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
+
+private fun generateQrCode(text: String): ImageBitmap? {
+    return try {
+        val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)
+        val bitmap = Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.RGB_565)
+        for (x in 0 until matrix.width) {
+            for (y in 0 until matrix.height) {
+                bitmap.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bitmap.asImageBitmap()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}

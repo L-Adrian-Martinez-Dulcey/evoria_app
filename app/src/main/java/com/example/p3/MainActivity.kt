@@ -50,15 +50,15 @@ private fun EvoriaApp() {
 
     NavHost(
         navController,
-        startDestination = if (onboardingDone) "login" else "onboarding"
+        startDestination = if (onboardingDone) "login" else "onboarding",
     ) {
         composable("onboarding") {
-            OnboardingScreen(onFinish = {
+            OnboardingScreen {
                 users.completeOnboarding()
                 navController.navigate("login") {
                     popUpTo("onboarding") { inclusive = true }
                 }
-            })
+            }
         }
         composable("login") { LoginScreen(navController, users) }
         composable("home") {
