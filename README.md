@@ -1,55 +1,63 @@
-# EvoriaApp - Gestión de Eventos
+# Evoria - Gestión de Eventos 📅
 
-EvoriaApp es una aplicación Android moderna diseñada para la gestión y descubrimiento de eventos. Permite a los usuarios explorar, inscribirse y calificar eventos, así como a los organizadores crear y administrar sus propias actividades.
+Evoria es una aplicación Android moderna diseñada para centralizar la planificación, descubrimiento y gestión de eventos. Desde la coordinación de recursos hasta la inscripción de asistentes, Evoria ofrece una experiencia fluida y elegante para organizadores y participantes.
 
 ## 🚀 Características Principales
 
-- **Autenticación de Usuarios:** Inicio de sesión seguro.
-- **Gestión de Perfil:** Actualización de datos personales y foto de perfil.
-- **Exploración de Eventos:** Pantalla de inicio con tarjetas visuales tipo poster para una navegación intuitiva.
-- **Detalle de Eventos:** Información completa, incluyendo ubicación, fecha, hora, cupos disponibles y reseñas.
-- **Inscripción:** Los usuarios pueden unirse a eventos con un solo clic.
-- **Creación y Edición:** Herramientas para que los creadores gestionen sus eventos (incluyendo carga de imágenes).
-- **Sistema de Reseñas:** Calificación y comentarios post-evento.
-- **Mis Eventos:** Sección dedicada para ver eventos creados e inscritos.
+- **Experiencia de Bienvenida:** Proceso de **Onboarding** dinámico que introduce las capacidades de la plataforma.
+- **Autenticación y Sesión:** Sistema de login seguro con persistencia de sesión mediante **DataStore**.
+- **Gestión de Perfil:** Personalización completa de datos, incluyendo carga de fotos de perfil.
+- **Exploración Visual:** Pantalla de inicio con tarjetas tipo poster diseñadas para una navegación intuitiva y visualmente atractiva.
+- **Generación de Códigos QR:** Generación instantánea de códigos QR para la ubicación de eventos, integrando enlaces directos a **Google Maps**.
+- **Detalle de Eventos:** Información exhaustiva: ubicación, cronograma, cupos en tiempo real y sistema de reseñas.
+- **Gestión Integral:** Herramientas para creadores que permiten subir imágenes, definir categorías y administrar la disponibilidad de cupos.
+- **Inscripción y Feedback:** Inscripción con un clic y sistema de calificación post-evento.
 
 ## 🛠️ Stack Tecnológico
 
-- **Lenguaje:** [Kotlin](https://kotlinlang.org/)
+- **Lenguaje:** [Kotlin](https://kotlinlang.org/) (Coroutines & Flows)
 - **UI Framework:** [Jetpack Compose](https://developer.android.com/jetpack/compose) con **Material 3**.
-- **Arquitectura:** MVVM (Model-View-ViewModel) con StateFlow para manejo de estado reactivo.
-- **API:** Mockapi
-- **Navegación:** Compose Navigation.
-- **Diseño Visual:**
-    - Fuente personalizada: **Tinos importada font Google** (Regular, Bold, Italic).
-    - Paleta de colores importada de **Material Desing**
+- **Arquitectura:** MVVM (Model-View-ViewModel) con StateFlow.
+- **Redes:** [Retrofit 2](https://square.github.io/retrofit/) & OkHttp para integración con API (MockAPI).
+- **Imágenes:** [Coil](https://coil-kt.github.io/coil/) para carga asíncrona y caché de imágenes.
+- **Utilidades:** 
+    - **ZXing:** Para la generación de códigos QR de ubicación.
+    - **DataStore:** Para gestión de preferencias y sesiones.
+- **Tipografía:** Fuente **Tinos** (Google Fonts) en todas sus variantes para un estilo profesional.
+
+## 🎨 Identidad Visual
+
+Evoria utiliza una paleta de colores sofisticada diseñada para transmitir confianza y elegancia:
+- **Navy (#2F4156):** Autoridad y profesionalismo.
+- **Teal (#567C8D):** Modernidad y tecnología.
+- **Beige (#F5EFE6):** Calidez y equilibrio.
+- **Gradientes:** Fondos radiales y lineales que aportan profundidad a la interfaz.
 
 ## 📁 Estructura del Proyecto
 
 ```text
 app/src/main/java/com/example/p3/
 ├── data/
-│   ├── api/          # Interfaces de Retrofit
-│   ├── model/        # Clases de datos (Event, User, Registration, Review)
-│   ├── repository/   # Lógica de acceso a datos
-│   └── session/      # Gestión de sesión de usuario (DataStore)
+│   ├── api/          # Cliente Retrofit e interfaces de servicio
+│   ├── model/        # Modelos (Event, User, Registration, Review)
+│   ├── repository/   # Repositorios de datos
+│   └── session/      # SessionManager con DataStore
 ├── ui/
-│   ├── screens/      # Pantallas de la aplicación (Compose)
-│   ├── theme/        # Configuración de Material 3 (Color, Type, Theme)
-│   └── viewmodel/    # Lógica de negocio y estado de la UI
-└── MainActivity.kt   # Punto de entrada y configuración de navegación
+│   ├── screens/      # Pantallas (Onboarding, Login, EventScreens, etc.)
+│   ├── theme/        # Tematización M3 (Color, Typography, Theme)
+│   └── viewmodel/    # ViewModels para gestión de estado
+└── MainActivity.kt   # Router y punto de entrada
 ```
 
-## 🎨 Diseño Visual
+## 📦 Instalación y Uso
 
-La aplicación utiliza un diseño limpio y moderno con tarjetas de eventos optimizadas:
-- **EventCard:** Diseño horizontal con imagen a la izquierda y jerarquía de texto clara a la derecha.
-- **Tipografía:** Implementación global de la fuente **Tinos** importada de google fonts para un aspecto editorial y profesional.
-- **Tematización:** Soporte dinámico para contrastes y colores de contenedor que mejoran la legibilidad.
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/SalomeGarcia2006/EvoriaApp
+   ```
+2. Abrir el proyecto en **Android Studio** (Koala o superior).
+3. Sincronizar Gradle para descargar las dependencias.
+4. Ejecutar en un emulador o dispositivo físico con **Android 7.0 (API 24)** o superior.
 
-## 📦 Instalación y Requisitos
-
-1. **Clonar el repositorio.** git clone https://github.com/SalomeGarcia2006/EvoriaApp
-2. Abrir con **Android Studio** u otra herramienta que conozcas 
-
-Desarrollado como parte del proyecto EvoriaApp para gestión de eventos comunitarios.
+---
+Desarrollado como una solución integral para la gestión de eventos modernos.
