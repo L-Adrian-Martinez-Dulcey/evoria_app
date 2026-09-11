@@ -337,7 +337,16 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
         } else {
             Button({ editing = true }, Modifier.fillMaxWidth()) { Text("Actualizar perfil") }
         }
-        TextButton({ userViewModel.logout { navController.navigate("login") { popUpTo("home") { inclusive = true } } } }, Modifier.fillMaxWidth()) { Text("Cerrar sesión") }
+        TextButton({
+            userViewModel.logout {
+                navController.navigate("onboarding") {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }, Modifier.fillMaxWidth()) {
+            Text("Cerrar sesión")
+        }
     } }
 }
 

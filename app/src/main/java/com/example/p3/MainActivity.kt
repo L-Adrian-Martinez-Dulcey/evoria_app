@@ -45,44 +45,105 @@ private fun EvoriaApp() {
     val navController = rememberNavController()
     val users: UserViewModel = viewModel()
     val events: EventViewModel = viewModel()
+
     val user by users.currentUser.collectAsState()
     val onboardingDone by users.isOnboardingCompleted.collectAsState()
+    val sessionChecked by users.sessionChecked.collectAsState()
 
-    NavHost(
-        navController,
-        startDestination = if (onboardingDone) "login" else "onboarding",
-    ) {
-        composable("onboarding") {
-            OnboardingScreen {
-                users.completeOnboarding()
-                navController.navigate("login") {
-                    popUpTo("onboarding") { inclusive = true }
-                }
-            }
+    if (onboardingDone != null && sessionChecked) {
+
+        val startDestination = when {
+            user != null -> "home"
+            onboardingDone == true -> "login"
+            else -> "onboarding"
         }
-        composable("login") { LoginScreen(navController, users) }
-        composable("home") {
-            user?.let { current -> AppScaffold(current, navController) { EventHomeScreen(events, navController) } }
-        }
-        composable("my_events") {
-            user?.let { current -> AppScaffold(current, navController) { MyEventsScreen(current, events, navController) } }
-        }
-        composable("profile") {
-            user?.let { current -> AppScaffold(current, navController) { ProfileScreen(current, users, navController) } }
-        }
-        composable("event_detail/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
-            user?.let { current ->
-                EventDetailScreen(
-                    Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
-                    current,
-                    events,
-                    navController,
+
+        NavHost(
+            navController = navController,
+            startDestination = startDestination
+        ) {
+            composable("onboarding") {
+                OnboardingScreen(
+                    onLogin = {
+                        users.completeOnboarding()
+                        navController.navigate("login") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    },
+                    onRegister = {
+                        users.completeOnboarding()
+                        navController.navigate("register") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    }
                 )
             }
-        }
-        composable("event_form") { user?.let { current -> EventFormScreen(null, current, events, navController) } }
-        composable("event_form/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
-            user?.let { current -> EventFormScreen(requireNotNull(it.arguments?.getString("eventId")), current, events, navController) }
+
+            composable("login") {
+                LoginScreen(navController, users)
+            }
+
+            composable("register") {
+                RegisterScreen(navController = navController, users = users)
+            }
+
+            composable("home") {
+                user?.let { current ->
+                    AppScaffold(current, navController) {
+                        EventHomeScreen(events, navController)
+                    }
+                }
+            }
+
+            composable("my_events") {
+                user?.let { current ->
+                    AppScaffold(current, navController) {
+                        MyEventsScreen(current, events, navController)
+                    }
+                }
+            }
+
+            composable("profile") {
+                user?.let { current ->
+                    AppScaffold(current, navController) {
+                        ProfileScreen(current, users, navController)
+                    }
+                }
+            }
+
+            composable(
+                "event_detail/{eventId}",
+                listOf(navArgument("eventId") { type = NavType.StringType })
+            ) {
+                user?.let { current ->
+                    EventDetailScreen(
+                        Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
+                        current,
+                        events,
+                        navController,
+                    )
+                }
+            }
+
+            composable("event_form") {
+                user?.let { current ->
+                    EventFormScreen(null, current, events, navController)
+                }
+            }
+
+            composable(
+                "event_form/{eventId}",
+                listOf(navArgument("eventId") { type = NavType.StringType })
+            ) {
+                user?.let { current ->
+                    EventFormScreen(
+                        requireNotNull(it.arguments?.getString("eventId")),
+                        current,
+                        events,
+                        navController
+                    )
+                }
+            }
         }
     }
 }

@@ -1,7 +1,6 @@
-# Task List - Fix App Build and Navigation
+# Task List - Fix Build and Navigation
 
-- [x] Fix syntax errors and shadowing in `OnboardingScreen.kt`
-- [x] Add onboarding flag to `SessionManager.kt`
-- [x] Manage onboarding state in `UserViewModel.kt`
-- [x] Integrate `OnboardingScreen` in `MainActivity.kt`
-- [x] Verify build and functionality
+- [x] Remove Wear OS dependencies from `libs.versions.toml`
+- [x] Remove Wear OS implementation from `app/build.gradle.kts`
+- [x] Fix imports and `NavHost` structure in `MainActivity.kt`
+- [x] Verify build with `./gradlew :app:compileDebugKotlin`

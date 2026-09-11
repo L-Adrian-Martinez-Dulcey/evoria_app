@@ -35,11 +35,14 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError
 
-    private val _isOnboardingCompleted = MutableStateFlow(false)
+    private val _isOnboardingCompleted = MutableStateFlow<Boolean?>(null)
     val isOnboardingCompleted = _isOnboardingCompleted.asStateFlow()
 
+    private val _sessionChecked = MutableStateFlow(false)
+
+    val sessionChecked = _sessionChecked.asStateFlow()
+
     init {
-        fetchUsers()
         restoreSession()
         observeOnboarding()
     }
@@ -72,10 +75,39 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     fun addUser(name: String, email: String) {
         viewModelScope.launch {
             try {
-                repository.createUser(User(name = name, email = email))
-                fetchUsers()
+                val created = repository.createUser(User(name = name, email = email))
+                _users.value = _users.value + created
             } catch (e: Exception) {
                 _error.value = e.message
+            }
+        }
+    }
+
+    fun registerUser(
+        name: String,
+        email: String,
+        password: String,
+        phone: String,
+        city: String,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val user = User(
+                    name = name,
+                    email = email,
+                    password = password,
+                    phone = phone,
+                    city = city
+                )
+
+                repository.createUser(user)
+
+                _error.value = null
+                onSuccess()
+
+            } catch (e: Exception) {
+                _error.value = "No fue posible crear la cuenta: ${e.message}"
             }
         }
     }
@@ -83,8 +115,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     fun updateUser(id: String, name: String, email: String) {
         viewModelScope.launch {
             try {
-                repository.updateUser(id, User(id = id, name = name, email = email))
-                fetchUsers()
+                val updated = repository.updateUser(id, User(id = id, name = name, email = email))
+                _users.value = _users.value.map { if (it.id == id) updated else it }
             } catch (e: Exception) {
                 _error.value = e.message
             }
@@ -93,11 +125,16 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun restoreSession() = viewModelScope.launch {
         try {
-            val userId = sessionManager.getUserId() ?: return@launch
-            _loginResult.value = repository.getUser(userId)
+            val userId = sessionManager.getUserId()
+
+            if (userId != null) {
+                _loginResult.value = repository.getUser(userId)
+            }
         } catch (_: Exception) {
-            // Si el usuario fue eliminado de MockAPI, se evita una sesiÃ³n invÃ¡lida.
             sessionManager.clear()
+            _loginResult.value = null
+        } finally {
+            _sessionChecked.value = true
         }
     }
 
@@ -124,7 +161,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 repository.deleteUser(id)
-                fetchUsers()
+                _users.value = _users.value.filterNot { it.id == id }
             } catch (e: Exception) {
                 _error.value = e.message
             }
