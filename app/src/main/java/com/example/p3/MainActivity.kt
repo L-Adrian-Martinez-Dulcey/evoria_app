@@ -69,6 +69,9 @@ private fun EvoriaApp(users: UserViewModel) {
         composable("home") {
             user?.let { current -> AppScaffold(current, users, navController) { EventHomeScreen(events, users, navController) } }
         }
+        composable("event_search") {
+            EventSearchScreen(events, navController)
+        }
         composable("my_events") {
             user?.let { current -> AppScaffold(current, users, navController) { MyEventsScreen(current, events, navController) } }
         }
