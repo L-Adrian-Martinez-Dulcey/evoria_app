@@ -1,54 +1,37 @@
-# Fix App Build and Navigation (Onboarding Flow)
+# Fix Build Errors and Navigation Issues
 
-The app currently fails to build due to syntax errors in `OnboardingScreen.kt`. Additionally, the newly created `OnboardingScreen` is not integrated into the application's navigation flow, making it unreachable.
-
-## User Review Required
-
-> [!IMPORTANT]
-> I will change the application's starting screen to **Onboarding**. This assumes you want new users to see the introduction before logging in. If you prefer to start at the Login screen, please let me know.
+The app is currently failing to build because of incorrect Wear Compose dependencies and SDK version mismatches. Additionally, `MainActivity.kt` contains syntax errors in the `NavHost` configuration and incorrect imports.
 
 ## Proposed Changes
 
-### UI Screens
+### Build Configuration
 
-#### [MODIFY] [OnboardingScreen.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/ui/screens/OnboardingScreen.kt)
+#### [MODIFY] [libs.versions.toml](file:///C:/EvoriaApp/gradle/libs.versions.toml)
 
-- **Fix Syntax Errors**:
-    - Remove the `clickable` parameter from `OnboardingScreen` which shadowed the Compose extension.
-    - Add `import androidx.compose.foundation.clickable`.
-    - Correct the `Box` modifier for the "Omitir" (Skip) area to use `.clickable { onFinish() }`.
-    - Remove the invalid `androidx.compose.foundation.clickable { ... }` block inside the `Box`.
+- **Remove Wear Compose dependency**: Remove the incorrect `compose-material3` entry pointing to `androidx.wear.compose`.
+- **Remove Wear version reference**: Remove `composeMaterial3 = "1.6.2"`.
 
-### Core / Navigation
+#### [MODIFY] [app/build.gradle.kts](file:///C:/EvoriaApp/app/build.gradle.kts)
+
+- **Remove redundant material3 implementation**: Remove `implementation(libs.compose.material3)` which was pointing to the Wear library.
+- **Keep standard material3**: Ensure `implementation(libs.androidx.compose.material3)` remains.
+
+### Core / UI
 
 #### [MODIFY] [MainActivity.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)
 
-- **Integrate Onboarding**:
-    - Add the `onboarding` destination to the `NavHost`.
-    - Set `startDestination = "onboarding"`.
-    - Configure `OnboardingScreen` to navigate to `login` when finished or skipped.
-
-### Data Layer
-
-#### [MODIFY] [SessionManager.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/data/session/SessionManager.kt)
-
-- **Add Onboarding Flag**:
-    - Add a `booleanPreferencesKey` to track if the user has completed onboarding.
-    - Add methods `saveOnboardingCompleted()` and `isOnboardingCompleted()`.
-
-#### [MODIFY] [UserViewModel.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/ui/viewmodel/UserViewModel.kt)
-
-- **Expose Onboarding State**:
-    - Add a `StateFlow<Boolean>` for onboarding status.
-    - Add `completeOnboarding()` method to update the state and persist it.
+- **Fix Imports**: Remove `import androidx.wear.compose.material3.AppScaffold`.
+- **Fix Navigation Routes**:
+    - Move `composable("my_events")`, `composable("profile")`, `composable("event_detail/{eventId}")`, `composable("event_form")`, and `composable("event_form/{eventId}")` **inside** the `NavHost` block.
+    - Fix the `NavHost` builder scope to include all application destinations.
+- **Fix Syntax**: Ensure the closing braces for `if (onboardingDone != null && sessionChecked)` and `NavHost` are correctly placed.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `./gradlew :app:compileDebugKotlin` to ensure all build errors are resolved.
+- Run `./gradlew :app:compileDebugKotlin` to verify the build issues are resolved.
 
 ### Manual Verification
-- Deploy the app and verify:
-    1. The app starts with the Onboarding screens.
-    2. Paging through the screens works.
-    3. Clicking "Omitir" or finishing the flow takes the user to the Login screen.
+- Deploy the app to a phone/emulator to ensure:
+    - The splash/session logic correctly routes to Onboarding, Login, or Home.
+    - Navigation between all screens (Home, Profile, My Events) works as expected.

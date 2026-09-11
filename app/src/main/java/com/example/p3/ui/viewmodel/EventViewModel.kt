@@ -32,37 +32,68 @@ class EventViewModel : ViewModel() {
 
     fun loadEvents() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-        runCatching { repository.getEvents() }
-            .onSuccess { _uiState.value = _uiState.value.copy(events = it, isLoading = false) }
-            .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = "No fue posible cargar eventos: ${it.message}") }
+        try {
+            val events = repository.getEvents()
+            _uiState.value = _uiState.value.copy(events = events, isLoading = false)
+        } catch (error: Exception) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "No fue posible cargar eventos: ${error.message}",
+            )
+        }
     }
 
     fun loadEvent(id: String) = viewModelScope.launch {
-        runCatching { repository.getEvent(id) }
-            .onSuccess { event ->
-                _uiState.value = _uiState.value.copy(
-                    events = _uiState.value.events
-                        .filterNot { it.id == event.id }
-                        .plus(event),
-                    error = null,
-                )
-            }
-            .onFailure { _uiState.value = _uiState.value.copy(error = "No fue posible cargar el evento: ${it.message}") }
+        if (_uiState.value.events.any { it.id == id }) return@launch
+        try {
+            val restored = repository.getEvent(id)
+            _uiState.value = _uiState.value.copy(
+                events = _uiState.value.events
+                    .filterNot { it.id == restored.id }
+                    .plus(restored),
+                error = null,
+            )
+        } catch (error: Exception) {
+            _uiState.value = _uiState.value.copy(
+                error = "No fue posible cargar el evento: ${error.message}",
+            )
+        }
     }
 
     fun save(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
         val validation = validate(event)
         if (validation != null) { _uiState.value = _uiState.value.copy(error = validation); return@launch }
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-        runCatching { if (event.id == null) repository.create(event) else repository.update(event) }
-            .onSuccess { loadEvents(); _uiState.value = _uiState.value.copy(isLoading = false, message = "Evento guardado"); onSuccess() }
-            .onFailure { _uiState.value = _uiState.value.copy(isLoading = false, error = "No fue posible guardar: ${it.message}") }
+        try {
+            val saved = if (event.id == null) repository.create(event) else repository.update(event)
+            val currentEvents = _uiState.value.events
+            val updatedEvents = if (event.id == null) {
+                currentEvents + saved
+            } else {
+                currentEvents.map { if (it.id == saved.id) saved else it }
+            }
+            _uiState.value = _uiState.value.copy(events = updatedEvents)
+            _uiState.value = _uiState.value.copy(isLoading = false, message = "Evento guardado")
+            onSuccess()
+        } catch (error: Exception) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "No fue posible guardar: ${error.message}",
+            )
+        }
     }
 
     fun delete(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
-        runCatching { repository.delete(requireNotNull(event.id)) }
-            .onSuccess { _uiState.value = _uiState.value.copy(events = _uiState.value.events - event, message = "Evento eliminado"); onSuccess() }
-            .onFailure { _uiState.value = _uiState.value.copy(error = "No fue posible eliminar: ${it.message}") }
+        val id = requireNotNull(event.id)
+        _uiState.value = _uiState.value.copy(events = _uiState.value.events - event, message = "Evento eliminado")
+        runCatching { repository.delete(id) }
+            .onSuccess { onSuccess() }
+            .onFailure {
+                _uiState.value = _uiState.value.copy(
+                    events = _uiState.value.events + event,
+                    error = "No fue posible eliminar: ${it.message}",
+                )
+            }
     }
 
     fun register(event: Event, userId: String) = viewModelScope.launch {
@@ -90,9 +121,25 @@ class EventViewModel : ViewModel() {
     fun clearMessage() { _uiState.value = _uiState.value.copy(error = null, message = null) }
 
     private fun updateEvent(event: Event, success: String) = viewModelScope.launch {
+        val previous = _uiState.value.events.firstOrNull { it.id == event.id }
+        _uiState.value = _uiState.value.copy(
+            events = _uiState.value.events.map { if (it.id == event.id) event else it },
+            message = success,
+        )
         runCatching { repository.update(event) }
-            .onSuccess { updated -> _uiState.value = _uiState.value.copy(events = _uiState.value.events.map { if (it.id == updated.id) updated else it }, message = success) }
-            .onFailure { _uiState.value = _uiState.value.copy(error = "No fue posible actualizar el evento: ${it.message}") }
+            .onSuccess { updated ->
+                _uiState.value = _uiState.value.copy(
+                    events = _uiState.value.events.map { if (it.id == updated.id) updated else it },
+                )
+            }
+            .onFailure {
+                _uiState.value = _uiState.value.copy(
+                    events = previous?.let { old ->
+                        _uiState.value.events.map { if (it.id == old.id) old else it }
+                    } ?: _uiState.value.events,
+                    error = "No fue posible actualizar el evento: ${it.message}",
+                )
+            }
     }
 
     private fun validate(event: Event): String? = when {
@@ -110,4 +157,5 @@ class EventViewModel : ViewModel() {
     private fun isFinished(value: String): Boolean = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(value)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
     private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
     private fun fail(message: String) { _uiState.value = _uiState.value.copy(error = message) }
+
 }

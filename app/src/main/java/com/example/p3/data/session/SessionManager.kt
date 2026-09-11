@@ -12,24 +12,34 @@ import kotlinx.coroutines.flow.map
 private val Context.sessionDataStore by preferencesDataStore(name = "evoria_session")
 
 class SessionManager(private val context: Context) {
+
     private val userIdKey = stringPreferencesKey("user_id")
     private val onboardingKey = booleanPreferencesKey("onboarding_completed")
 
     suspend fun saveUserId(id: String) {
-        context.sessionDataStore.edit { it[userIdKey] = id }
+        context.sessionDataStore.edit {
+            it[userIdKey] = id
+        }
     }
 
-    suspend fun getUserId(): String? = context.sessionDataStore.data.first()[userIdKey]
+    suspend fun getUserId(): String? =
+        context.sessionDataStore.data.first()[userIdKey]
 
     suspend fun saveOnboardingCompleted() {
-        context.sessionDataStore.edit { it[onboardingKey] = true }
+        context.sessionDataStore.edit {
+            it[onboardingKey] = true
+        }
     }
 
-    val isOnboardingCompleted: Flow<Boolean> = context.sessionDataStore.data.map {
-        it[onboardingKey] ?: false
-    }
+    val isOnboardingCompleted: Flow<Boolean> =
+        context.sessionDataStore.data.map {
+            it[onboardingKey] ?: false
+        }
 
     suspend fun clear() {
-        context.sessionDataStore.edit { it.remove(userIdKey) }
+        context.sessionDataStore.edit {
+            it.remove(userIdKey)
+            it[onboardingKey] = false
+        }
     }
 }

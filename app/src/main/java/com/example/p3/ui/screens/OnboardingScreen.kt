@@ -20,8 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Login
-import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,7 +41,6 @@ import kotlinx.coroutines.launch
 private val Navy = Color(0xFF2F4156)
 private val Teal = Color(0xFF567C8D)
 private val Beige = Color(0xFFF5EFE6)
-private val SecondaryText = Color(0xFF7A8F9E)
 
 data class OnboardingPage(
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -53,9 +50,9 @@ data class OnboardingPage(
 
 @Composable
 fun OnboardingScreen(
-    onFinish: () -> Unit
+    onLogin: () -> Unit,
+    onRegister: () -> Unit
 ) {
-
     val pages = listOf(
 
         OnboardingPage(
@@ -88,43 +85,11 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Navy,
-                        Teal
-                    )
+                Brush.verticalGradient(
+                    colors = listOf(Navy, Teal)
                 )
             )
     ) {
-
-        // Botón Omitir
-        if (pagerState.currentPage < pages.lastIndex) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 20.dp, end = 10.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onFinish() }
-                    .padding(12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Omitir",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Omitir",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
 
         Column(
             modifier = Modifier
@@ -138,7 +103,6 @@ fun OnboardingScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // Logo
             Text(
                 text = "EVORIA",
                 color = Color.White,
@@ -161,7 +125,6 @@ fun OnboardingScreen(
                 )
             }
 
-            // Indicadores
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -189,22 +152,19 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(25.dp))
 
-            // Botón
             Button(
                 onClick = {
 
                     if (pagerState.currentPage == pages.lastIndex) {
-
-                        onFinish()
-
+                        onRegister()
                     } else {
-
                         coroutineScope.launch {
                             pagerState.animateScrollToPage(
                                 pagerState.currentPage + 1
                             )
                         }
                     }
+
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -216,27 +176,39 @@ fun OnboardingScreen(
                 )
             ) {
 
-                if (pagerState.currentPage == pages.lastIndex) {
+                Text(
+                    text = if (pagerState.currentPage == pages.lastIndex)
+                        "Crear cuenta"
+                    else
+                        "Siguiente",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
-                    Icon(
-                        imageVector = Icons.Default.Login,
-                        contentDescription = null
-                    )
+            if (pagerState.currentPage == 0) {
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
 
                     Text(
-                        text = "Entrar",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "¿Ya tienes una cuenta? ",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 14.sp
                     )
 
-                } else {
-
                     Text(
-                        text = "Siguiente",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "Inicia sesión",
+                        color = Beige,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            onLogin()
+                        }
                     )
                 }
             }
@@ -257,7 +229,6 @@ private fun OnboardingPageContent(
         verticalArrangement = Arrangement.Center
     ) {
 
-        // Círculo del icono
         Box(
             modifier = Modifier
                 .size(130.dp)
