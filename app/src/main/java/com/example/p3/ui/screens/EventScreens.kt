@@ -138,6 +138,7 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
     }
     val isCreator = event.creatorId == user.id
     val isRegistered = event.registrations.any { it.userId == user.id }
+    val hasEnded = event.hasEnded()
     var qrBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var qrError by remember { mutableStateOf<String?>(null) }
 
@@ -194,9 +195,9 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
                     Spacer(Modifier.width(8.dp)); OutlinedButton({ confirmDelete = true }) { Icon(Icons.Default.Delete, null); Text(" Eliminar") }
                 } else {
                     Button({ viewModel.register(event, user.id.orEmpty()) }, enabled = !isRegistered && event.availableSlots > 0, modifier = Modifier.fillMaxWidth()) { Text(if (isRegistered) "Ya estás inscrito" else "Inscribirme") }
-                    if (isRegistered && hasFinished(event.date)) OutlinedButton({ showReview = true }, Modifier.fillMaxWidth()) { Text("Calificar evento") }
+                    if (isRegistered && hasEnded) OutlinedButton({ showReview = true }, Modifier.fillMaxWidth()) { Text("Calificar evento") }
                 }
-                if (event.reviews.isNotEmpty()) { Text("Reseñas", style = MaterialTheme.typography.titleMedium); event.reviews.forEach { Text("${it.rating}/5 · ${it.comment}") } }
+                if (hasEnded && event.reviews.isNotEmpty()) { Text("Reseñas", style = MaterialTheme.typography.titleMedium); event.reviews.forEach { Text("${it.rating}/5 · ${it.comment}") } }
             }
         }
     }
@@ -344,8 +345,6 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
 @Composable private fun EventFeedback(error: String?, message: String?, clear: () -> Unit) { if (error != null || message != null) LaunchedEffect(error, message) { /* El estado se visualiza en cada pantalla sin ocultar errores. */ } }
 @Composable private fun ReviewDialog(onDismiss: () -> Unit, save: (Int, String) -> Unit) { var rating by remember { mutableStateOf("") }; var comment by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Calificar evento") }, text = { Column { AppField(rating, { rating = it }, "Puntaje (1-5)", KeyboardType.Number); AppField(comment, { comment = it }, "Comentario", single = false) } }, confirmButton = { TextButton({ save(rating.toIntOrNull() ?: 0, comment) }) { Text("Publicar") } }, dismissButton = { TextButton(onDismiss) { Text("Cancelar") } }) }
 private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
-private fun hasFinished(date: String) = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
-
 private fun generateQrCode(text: String): ImageBitmap? {
     return try {
         val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)

@@ -1,6 +1,10 @@
 package com.example.p3.data.model
 
 import com.google.gson.annotations.SerializedName
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 /** El recurso remoto sigue llamándose `item`, pero en la app representa un evento. */
 data class Event(
@@ -17,7 +21,13 @@ data class Event(
     @SerializedName("createdAt") val createdAt: String = "",
     @SerializedName("registrations") val registrations: List<Registration> = emptyList(),
     @SerializedName("reviews") val reviews: List<Review> = emptyList(),
-)
+) {
+    fun hasEnded(now: Date = Calendar.getInstance().time): Boolean = runCatching {
+        if (date.isBlank() || time.isBlank()) return false
+        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+        format.parse("$date $time")?.before(now) == true
+    }.getOrDefault(false)
+}
 
 data class Registration(
     @SerializedName("id") val id: String = "",

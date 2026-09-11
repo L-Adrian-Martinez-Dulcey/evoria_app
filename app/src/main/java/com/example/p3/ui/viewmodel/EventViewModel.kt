@@ -81,7 +81,7 @@ class EventViewModel : ViewModel() {
     }
 
     fun addReview(event: Event, userId: String, rating: Int, comment: String) {
-        if (!isFinished(event.date)) return fail("Solo puedes calificar eventos finalizados.")
+        if (!event.hasEnded()) return fail("Solo puedes calificar eventos finalizados.")
         if (rating !in 1..5 || comment.isBlank()) return fail("Indica una calificación de 1 a 5 y un comentario.")
         if (event.reviews.any { it.userId == userId }) return fail("Ya calificaste este evento.")
         updateEvent(event.copy(reviews = event.reviews + Review(UUID.randomUUID().toString(), event.id.orEmpty(), userId, rating, comment.trim())), "Reseña publicada")
@@ -107,7 +107,6 @@ class EventViewModel : ViewModel() {
         val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
         !selected.before(tomorrow)
     }.getOrDefault(false)
-    private fun isFinished(value: String): Boolean = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(value)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
     private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
     private fun fail(message: String) { _uiState.value = _uiState.value.copy(error = message) }
 }
