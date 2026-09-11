@@ -58,14 +58,23 @@ private fun EvoriaApp(users: UserViewModel) {
         startDestination = if (onboardingDone) "login" else "onboarding",
     ) {
         composable("onboarding") {
-            OnboardingScreen {
-                users.completeOnboarding()
-                navController.navigate("login") {
-                    popUpTo("onboarding") { inclusive = true }
+            OnboardingScreen(
+                onRegister = {
+                    users.completeOnboarding()
+                    navController.navigate("register") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                },
+                onLogin = {
+                    users.completeOnboarding()
+                    navController.navigate("login") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
                 }
-            }
+            )
         }
         composable("login") { LoginScreen(navController, users) }
+        composable("register") { RegisterScreen(navController, users) }
         composable("home") {
             user?.let { current -> AppScaffold(current, users, navController) { EventHomeScreen(events, users, navController) } }
         }

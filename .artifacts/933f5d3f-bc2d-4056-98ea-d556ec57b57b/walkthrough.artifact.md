@@ -1,33 +1,20 @@
-# Build and Navigation Fixed
+# Project Documentation Updated
 
-I have successfully resolved the build errors caused by incorrect dependencies and fixed the navigation structure in `MainActivity.kt`.
+I have updated the `README.md` to include all the new functionalities implemented, such as the registration flow, dynamic QR code generation, and the updated technical stack.
 
 ## Changes Made
 
-### Build Configuration
-- **[libs.versions.toml](file:///C:/EvoriaApp/gradle/libs.versions.toml)**: Removed Wear OS library references that were causing SDK version conflicts.
-- **[app/build.gradle.kts](file:///C:/EvoriaApp/app/build.gradle.kts)**: Cleaned up redundant and incorrect material3 implementations.
-
-### UI & Navigation
-- **[MainActivity.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)**:
-    - Removed incorrect Wear OS imports.
-    - Fixed the `NavHost` structure, ensuring all destinations (`profile`, `my_events`, `event_detail`, etc.) are correctly defined within the navigation scope.
-    - Resolved syntax errors related to mismatched braces.
+### Documentation
+- **[README.md](file:///C:/EvoriaApp/README.md)**:
+    - Updated the **Features** section to include the new `RegisterScreen` and the dynamic Google Maps QR generation logic.
+    - Refined the **Technical Stack** to correctly list DataStore, Coil, and ZXing with their specific roles in the app.
+    - Updated the **Project Structure** to reflect the current file organization, including the new screens and viewmodels.
+    - Clarified the **Navigation Flow** (Splash -> Onboarding -> Login/Register).
 
 ## Verification Results
 
-### Build Status
-> [!NOTE]
-> The project now compiles successfully.
-- Ran `./gradlew :app:compileDebugKotlin`: **SUCCESS**
+### Manual Review
+- Verified that all listed features match the current implementation in `MainActivity.kt`, `EventScreens.kt`, and `UserViewModel.kt`.
+- Ensured that the installation instructions are up-to-date with the current Android Studio requirements.
 
-### Manual Verification Required
-- Please deploy the app to verify the end-to-end flow:
-    1. Splash/Session check.
-    2. Onboarding (if first time).
-    3. Login/Register.
-    4. Home and full navigation.
-
-render_diffs(file:///C:/EvoriaApp/gradle/libs.versions.toml)
-render_diffs(file:///C:/EvoriaApp/app/build.gradle.kts)
-render_diffs(file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)
+render_diffs(file:///C:/EvoriaApp/README.md)

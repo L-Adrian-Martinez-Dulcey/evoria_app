@@ -87,6 +87,32 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun registerUser(
+        name: String,
+        email: String,
+        password: String,
+        phone: String,
+        city: String,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val user = User(
+                    name = name,
+                    email = email,
+                    password = password,
+                    phone = phone,
+                    city = city
+                )
+                repository.createUser(user)
+                _error.value = null
+                onSuccess()
+            } catch (e: Exception) {
+                _error.value = "No fue posible crear la cuenta: ${e.message}"
+            }
+        }
+    }
+
     fun updateUser(id: String, name: String, email: String) {
         viewModelScope.launch {
             try {
