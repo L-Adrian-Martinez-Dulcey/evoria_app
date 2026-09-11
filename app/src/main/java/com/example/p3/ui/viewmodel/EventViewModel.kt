@@ -50,7 +50,18 @@ class EventViewModel : ViewModel() {
             .onFailure { _uiState.value = _uiState.value.copy(error = "No fue posible cargar el evento: ${it.message}") }
     }
 
-    fun save(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
+    fun save(event: Event, userId: String, onSuccess: () -> Unit) = viewModelScope.launch {
+        if (event.id != null) {
+            val currentEvent = _uiState.value.events.firstOrNull { it.id == event.id }
+            if (currentEvent == null) {
+                fail("No fue posible verificar el propietario del evento.")
+                return@launch
+            }
+            if (currentEvent.creatorId != userId) {
+                fail("Solo el creador puede editar este evento.")
+                return@launch
+            }
+        }
         val validation = validate(event)
         if (validation != null) { _uiState.value = _uiState.value.copy(error = validation); return@launch }
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)

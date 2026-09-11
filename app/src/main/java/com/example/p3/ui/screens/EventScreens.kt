@@ -212,6 +212,9 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
     val state by viewModel.uiState.collectAsState(); val existing = state.events.firstOrNull { it.id == eventId }
     val canEdit = existing == null || existing.creatorId == user.id
     val context = LocalContext.current
+    LaunchedEffect(eventId) {
+        if (eventId != null && existing == null) viewModel.loadEvent(eventId)
+    }
     var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }; var description by remember(existing?.id) { mutableStateOf(existing?.description.orEmpty()) }
     var date by remember(existing?.id) { mutableStateOf(existing?.date.orEmpty()) }; var time by remember(existing?.id) { mutableStateOf(existing?.time.orEmpty()) }
     var place by remember(existing?.id) { mutableStateOf(existing?.place.orEmpty()) }; var category by remember(existing?.id) { mutableStateOf(existing?.category.orEmpty()) }
@@ -220,6 +223,18 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
         runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         image = selected.toString()
     } }
+    if (eventId != null && existing == null && state.error == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    if (eventId != null && existing == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(state.error ?: "No fue posible cargar el evento.")
+        }
+        return
+    }
     if (eventId != null && existing != null && !canEdit) {
         LaunchedEffect(eventId) { navController.popBackStack() }
         return
@@ -245,7 +260,7 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
                 Modifier.fillMaxWidth().aspectRatio(1f),
                 contentScale = ContentScale.Crop,
             )
-            Button(onClick = { viewModel.save(Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.trim(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList())) { navController.popBackStack() } }, modifier = Modifier.fillMaxWidth()) { Text("Guardar") }
+            Button(onClick = { viewModel.save(Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.trim(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList()), user.id.orEmpty()) { navController.popBackStack() } }, modifier = Modifier.fillMaxWidth()) { Text("Guardar") }
         }
     }
 }
