@@ -38,6 +38,9 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _isOnboardingCompleted = MutableStateFlow(false)
     val isOnboardingCompleted = _isOnboardingCompleted.asStateFlow()
 
+    private val _sessionChecked = MutableStateFlow(false)
+    val sessionChecked = _sessionChecked.asStateFlow()
+
     private val _isDarkMode = MutableStateFlow(false)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
@@ -47,13 +50,24 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         fetchUsers()
-        restoreSession()
-        observeOnboarding()
+        restoreSessionAndOnboarding()
     }
 
-    private fun observeOnboarding() = viewModelScope.launch {
+    private fun restoreSessionAndOnboarding() = viewModelScope.launch {
+        // Restaurar sesión
+        try {
+            val userId = sessionManager.getUserId()
+            if (userId != null) {
+                _loginResult.value = repository.getUser(userId)
+            }
+        } catch (_: Exception) {
+            sessionManager.clear()
+        }
+
+        // Observar onboarding (esto emitirá el valor actual inmediatamente)
         sessionManager.isOnboardingCompleted.collectLatest {
             _isOnboardingCompleted.value = it
+            _sessionChecked.value = true
         }
     }
 
@@ -124,16 +138,6 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun restoreSession() = viewModelScope.launch {
-        try {
-            val userId = sessionManager.getUserId() ?: return@launch
-            _loginResult.value = repository.getUser(userId)
-        } catch (_: Exception) {
-            // Si el usuario fue eliminado de MockAPI, se evita una sesiÃ³n invÃ¡lida.
-            sessionManager.clear()
-        }
-    }
-
     fun updateProfile(user: User, onSuccess: () -> Unit) {
         if (user.name.isBlank() || user.email.isBlank() || user.phone.isBlank() || user.city.isBlank()) {
             _error.value = "Completa todos los campos del perfil"
@@ -197,6 +201,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         sessionManager.clear()
         _loginResult.value = null
         _loginError.value = null
+        _isOnboardingCompleted.value = false // Reflejar el cambio en memoria inmediatamente
         onComplete()
     }
 

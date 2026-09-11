@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -14,8 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -52,54 +56,102 @@ private fun EvoriaApp(users: UserViewModel) {
     val events: EventViewModel = viewModel()
     val user by users.currentUser.collectAsState()
     val onboardingDone by users.isOnboardingCompleted.collectAsState()
+    val sessionChecked by users.sessionChecked.collectAsState()
 
-    NavHost(
-        navController,
-        startDestination = if (onboardingDone) "login" else "onboarding",
-    ) {
-        composable("onboarding") {
-            OnboardingScreen(
-                onRegister = {
-                    users.completeOnboarding()
-                    navController.navigate("register") {
-                        popUpTo("onboarding") { inclusive = true }
-                    }
-                },
-                onLogin = {
-                    users.completeOnboarding()
-                    navController.navigate("login") {
-                        popUpTo("onboarding") { inclusive = true }
-                    }
-                }
-            )
+    if (!sessionChecked) {
+        // Pantalla de carga mientras se restaura la sesión
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
         }
-        composable("login") { LoginScreen(navController, users) }
-        composable("register") { RegisterScreen(navController, users) }
-        composable("home") {
-            user?.let { current -> AppScaffold(current, users, navController) { EventHomeScreen(events, users, navController) } }
-        }
-        composable("event_search") {
-            EventSearchScreen(events, navController)
-        }
-        composable("my_events") {
-            user?.let { current -> AppScaffold(current, users, navController) { MyEventsScreen(current, events, navController) } }
-        }
-        composable("profile") {
-            user?.let { current -> AppScaffold(current, users, navController) { ProfileScreen(current, users, navController) } }
-        }
-        composable("event_detail/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
-            user?.let { current ->
-                EventDetailScreen(
-                    Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
-                    current,
-                    events,
-                    navController,
-                )
+    } else {
+        val initialStartDestination = remember {
+            when {
+                user != null -> "home"
+                onboardingDone -> "login"
+                else -> "onboarding"
             }
         }
-        composable("event_form") { user?.let { current -> EventFormScreen(null, current, events, navController) } }
-        composable("event_form/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
-            user?.let { current -> EventFormScreen(requireNotNull(it.arguments?.getString("eventId")), current, events, navController) }
+
+        NavHost(
+            navController,
+            startDestination = initialStartDestination,
+        ) {
+            composable("onboarding") {
+                OnboardingScreen(
+                    onRegister = {
+                        users.completeOnboarding()
+                        navController.navigate("register") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    },
+                    onLogin = {
+                        users.completeOnboarding()
+                        navController.navigate("login") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable("login") { LoginScreen(navController, users) }
+            composable("register") { RegisterScreen(navController, users) }
+            composable("home") {
+                user?.let { current ->
+                    AppScaffold(current, users, navController) {
+                        EventHomeScreen(events, users, navController)
+                    }
+                }
+            }
+            composable("event_search") {
+                EventSearchScreen(events, navController)
+            }
+            composable("my_events") {
+                user?.let { current ->
+                    AppScaffold(current, users, navController) {
+                        MyEventsScreen(current, events, navController)
+                    }
+                }
+            }
+            composable("profile") {
+                user?.let { current ->
+                    AppScaffold(current, users, navController) {
+                        ProfileScreen(current, users, navController)
+                    }
+                }
+            }
+            composable(
+                "event_detail/{eventId}",
+                listOf(navArgument("eventId") { type = NavType.StringType })
+            ) { it ->
+                user?.let { current ->
+                    EventDetailScreen(
+                        Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
+                        current,
+                        events,
+                        navController,
+                    )
+                }
+            }
+            composable("event_form") {
+                user?.let { current ->
+                    EventFormScreen(null, current, events, navController)
+                }
+            }
+            composable(
+                "event_form/{eventId}",
+                listOf(navArgument("eventId") { type = NavType.StringType })
+            ) { it ->
+                user?.let { current ->
+                    EventFormScreen(
+                        requireNotNull(it.arguments?.getString("eventId")),
+                        current,
+                        events,
+                        navController
+                    )
+                }
+            }
         }
     }
 }

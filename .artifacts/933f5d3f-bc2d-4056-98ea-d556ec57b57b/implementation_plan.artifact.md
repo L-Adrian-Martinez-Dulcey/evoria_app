@@ -1,20 +1,22 @@
-# Update README.md with New Functionalities
+# Fix Redirection to RegisterScreen from Onboarding
 
-The `README.md` needs to be updated to accurately reflect the latest features and architectural improvements made to the project, specifically around the user flow, authentication, and technical stack.
+The app incorrectly navigates to `LoginScreen` instead of `RegisterScreen` when clicking "Crear cuenta" in the onboarding flow. This happens because the `NavHost` recomposes and resets its `startDestination` to `"login"` as soon as the onboarding completion flag is updated in DataStore.
 
 ## Proposed Changes
 
-### Documentation
+### Core / Navigation
 
-#### [MODIFY] [README.md](file:///C:/EvoriaApp/README.md)
+#### [MODIFY] [MainActivity.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)
 
-- **Authentication**: Add `RegisterScreen` to the list of key screens and authentication features.
-- **Navigation Flow**: Describe the conditional navigation logic (Splash -> Onboarding -> Login/Register -> Home).
-- **QR Functionality**: Clarify that QR codes are generated dynamically for Google Maps integration based on event location.
-- **Technical Stack**: Verify and update library versions (e.g., zxing, coil) to match `libs.versions.toml`.
-- **Project Structure**: Update the file list in the `ui/screens` directory to include `RegisterScreen`.
+- **Stabilize `startDestination`**: Wrap the `startDestination` logic in a `remember` block tied to the `sessionChecked` state. This ensures the `NavHost` graph doesn't reset its identity mid-navigation when `onboardingDone` or `user` state changes during the same app session.
 
 ## Verification Plan
 
+### Automated Tests
+- Build the project: `./gradlew :app:assembleDebug`
+
 ### Manual Verification
-- Read through the updated `README.md` to ensure clarity and accuracy.
+1. **Fresh Install**: Open the app -> see Onboarding.
+2. **Redirection**: Go to the last onboarding page and click "Crear cuenta".
+3. **Outcome**: The app must navigate to **RegisterScreen**. It should **not** jump to the Login screen.
+4. **Persistence**: Close and reopen the app. It should now start at **LoginScreen** (since onboarding was marked as done).

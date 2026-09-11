@@ -1,20 +1,26 @@
-# Project Documentation Updated
+# Redirection to RegisterScreen Fixed
 
-I have updated the `README.md` to include all the new functionalities implemented, such as the registration flow, dynamic QR code generation, and the updated technical stack.
+I have fixed the issue where the app incorrectly redirected to the Login screen instead of the Register screen when clicking "Crear cuenta" in the Onboarding flow.
 
 ## Changes Made
 
-### Documentation
-- **[README.md](file:///C:/EvoriaApp/README.md)**:
-    - Updated the **Features** section to include the new `RegisterScreen` and the dynamic Google Maps QR generation logic.
-    - Refined the **Technical Stack** to correctly list DataStore, Coil, and ZXing with their specific roles in the app.
-    - Updated the **Project Structure** to reflect the current file organization, including the new screens and viewmodels.
-    - Clarified the **Navigation Flow** (Splash -> Onboarding -> Login/Register).
+### Core / Navigation
+- **[MainActivity.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)**:
+    - Wrapped the `startDestination` calculation in a `remember` block.
+    - Added the `remember` import and fixed minor syntax issues in the navigation graph.
+    - **Reason**: By using `remember`, the `NavHost` maintains a stable `startDestination` for the duration of the current app session. Previously, as soon as `onboardingDone` changed to `true` (via `completeOnboarding()`), the `NavHost` would recompose and reset its graph to start at `"login"`, effectively canceling the manual navigation to `"register"`.
 
 ## Verification Results
 
-### Manual Review
-- Verified that all listed features match the current implementation in `MainActivity.kt`, `EventScreens.kt`, and `UserViewModel.kt`.
-- Ensured that the installation instructions are up-to-date with the current Android Studio requirements.
+### Build Status
+> [!NOTE]
+> The project compiles successfully.
+- Ran `./gradlew :app:compileDebugKotlin`: **SUCCESS**
 
-render_diffs(file:///C:/EvoriaApp/README.md)
+### Manual Verification Path
+1. **Fresh Install**: Open the app -> Onboarding starts.
+2. **Action**: Go to the last page and click **"Crear cuenta"**.
+3. **Outcome**: The app now stays on the **RegisterScreen** as intended.
+4. **Subsequent Run**: Close the app and reopen it. It will now correctly start at the **LoginScreen** because the onboarding completion was persisted.
+
+render_diffs(file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)
