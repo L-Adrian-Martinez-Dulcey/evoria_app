@@ -177,7 +177,7 @@ fun OnboardingScreen(
 
                 Text(
                     text = if (pagerState.currentPage == pages.lastIndex)
-                        "Crear cuenta"
+                        "Registrarse"
                     else
                         "Siguiente",
                     fontSize = 16.sp,
