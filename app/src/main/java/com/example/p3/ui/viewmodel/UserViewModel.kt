@@ -38,6 +38,13 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _isOnboardingCompleted = MutableStateFlow(false)
     val isOnboardingCompleted = _isOnboardingCompleted.asStateFlow()
 
+    private val _isDarkMode = MutableStateFlow(false)
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
+    fun toggleDarkMode() {
+        _isDarkMode.value = !_isDarkMode.value
+    }
+
     init {
         fetchUsers()
         restoreSession()

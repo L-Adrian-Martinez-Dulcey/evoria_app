@@ -50,10 +50,26 @@ import java.util.Calendar
 import java.util.Locale
 
 @Composable
-fun EventHomeScreen(viewModel: EventViewModel, navController: NavController) {
+fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
+    val isDarkMode by userViewModel.isDarkMode.collectAsState()
     EventFeedback(state.error, state.message) { viewModel.clearMessage() }
-    Scaffold(floatingActionButton = { FloatingActionButton(onClick = { navController.navigate("event_form") }) { Icon(Icons.Default.Add, "Crear evento") } }) { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Evoria") },
+                actions = {
+                    IconButton(onClick = { userViewModel.toggleDarkMode() }) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                            contentDescription = "Cambiar modo de tema"
+                        )
+                    }
+                }
+            )
+        },
+        floatingActionButton = { FloatingActionButton(onClick = { navController.navigate("event_form") }) { Icon(Icons.Default.Add, "Crear evento") } }
+    ) { padding ->
         when {
             state.isLoading && state.events.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             state.events.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No hay eventos disponibles") }

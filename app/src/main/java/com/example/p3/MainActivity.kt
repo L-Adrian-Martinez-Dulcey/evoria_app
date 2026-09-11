@@ -36,14 +36,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { AppTheme { EvoriaApp() } }
+        setContent {
+            val users: UserViewModel = viewModel()
+            val isDarkMode by users.isDarkMode.collectAsState()
+            AppTheme(darkTheme = isDarkMode) {
+                EvoriaApp(users)
+            }
+        }
     }
 }
 
 @Composable
-private fun EvoriaApp() {
+private fun EvoriaApp(users: UserViewModel) {
     val navController = rememberNavController()
-    val users: UserViewModel = viewModel()
     val events: EventViewModel = viewModel()
     val user by users.currentUser.collectAsState()
     val onboardingDone by users.isOnboardingCompleted.collectAsState()
@@ -62,13 +67,13 @@ private fun EvoriaApp() {
         }
         composable("login") { LoginScreen(navController, users) }
         composable("home") {
-            user?.let { current -> AppScaffold(current, navController) { EventHomeScreen(events, navController) } }
+            user?.let { current -> AppScaffold(current, users, navController) { EventHomeScreen(events, users, navController) } }
         }
         composable("my_events") {
-            user?.let { current -> AppScaffold(current, navController) { MyEventsScreen(current, events, navController) } }
+            user?.let { current -> AppScaffold(current, users, navController) { MyEventsScreen(current, events, navController) } }
         }
         composable("profile") {
-            user?.let { current -> AppScaffold(current, navController) { ProfileScreen(current, users, navController) } }
+            user?.let { current -> AppScaffold(current, users, navController) { ProfileScreen(current, users, navController) } }
         }
         composable("event_detail/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
             user?.let { current ->
@@ -88,7 +93,7 @@ private fun EvoriaApp() {
 }
 
 @Composable
-private fun AppScaffold(user: User, navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
+private fun AppScaffold(user: User, userViewModel: UserViewModel, navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
     val tabs = listOf("home" to "Inicio", "my_events" to "Mis eventos", "profile" to "Perfil")
     Scaffold(
         bottomBar = {
