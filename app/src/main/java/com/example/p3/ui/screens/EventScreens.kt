@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,10 +51,32 @@ import java.util.Calendar
 import java.util.Locale
 
 @Composable
-fun EventHomeScreen(viewModel: EventViewModel, navController: NavController) {
+fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
+    val isDarkMode by userViewModel.isDarkMode.collectAsState()
     EventFeedback(state.error, state.message) { viewModel.clearMessage() }
-    Scaffold(floatingActionButton = { FloatingActionButton(onClick = { navController.navigate("event_form") }) { Icon(Icons.Default.Add, "Crear evento") } }) { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Evoria") },
+                actions = {
+                    IconButton(onClick = { navController.navigate("event_search") }) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar eventos"
+                        )
+                    }
+                    IconButton(onClick = { userViewModel.toggleDarkMode() }) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                            contentDescription = "Cambiar modo de tema"
+                        )
+                    }
+                }
+            )
+        },
+        floatingActionButton = { FloatingActionButton(onClick = { navController.navigate("event_form") }) { Icon(Icons.Default.Add, "Crear evento") } }
+    ) { padding ->
         when {
             state.isLoading && state.events.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             state.events.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No hay eventos disponibles") }
@@ -368,5 +391,143 @@ private fun generateQrCode(text: String): ImageBitmap? {
     } catch (e: Exception) {
         e.printStackTrace()
         null
+    }
+}
+
+@Composable
+fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
+    val state by viewModel.uiState.collectAsState()
+    
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf("") }
+    
+    val categories = listOf("Arte", "Deporte", "Tecnología", "Música", "Gastronomía", "Educación")
+    
+    // Filtrado combinado reactivo
+    val filteredEvents = state.events.filter { event ->
+        val matchesName = event.title.contains(searchQuery, ignoreCase = true) || 
+                          event.description.contains(searchQuery, ignoreCase = true)
+        val matchesCategory = selectedCategory.isBlank() || event.category.equals(selectedCategory, ignoreCase = true)
+        val matchesDate = selectedDate.isBlank() || event.date == selectedDate
+        
+        matchesName && matchesCategory && matchesDate
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Buscar Eventos") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    if (searchQuery.isNotBlank() || selectedCategory.isNotBlank() || selectedDate.isNotBlank()) {
+                        TextButton(onClick = {
+                            searchQuery = ""
+                            selectedCategory = ""
+                            selectedDate = ""
+                        }) {
+                            Text("Limpiar", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Campo de búsqueda por Nombre/Texto
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Buscar por nombre") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Selector de Fecha
+                val context = LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        val c = Calendar.getInstance()
+                        DatePickerDialog(context, { _, y, m, d ->
+                            selectedDate = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)
+                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (selectedDate.isBlank()) "Fecha" else selectedDate,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Selector de Categoría (Menú desplegable simple)
+                var catExpanded by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { catExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = if (selectedCategory.isBlank()) "Categoría" else selectedCategory,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    DropdownMenu(expanded = catExpanded, onDismissRequest = { catExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Todas") },
+                            onClick = { selectedCategory = ""; catExpanded = false }
+                        )
+                        categories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = { selectedCategory = cat; catExpanded = false }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Resultados
+            if (filteredEvents.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No se encontraron eventos con los filtros seleccionados.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(filteredEvents, key = { index, event -> event.id ?: "search-$index" }) { _, event ->
+                        EventCard(event) {
+                            event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -36,120 +36,67 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { AppTheme { EvoriaApp() } }
+        setContent {
+            val users: UserViewModel = viewModel()
+            val isDarkMode by users.isDarkMode.collectAsState()
+            AppTheme(darkTheme = isDarkMode) {
+                EvoriaApp(users)
+            }
+        }
     }
 }
 
 @Composable
-private fun EvoriaApp() {
+private fun EvoriaApp(users: UserViewModel) {
     val navController = rememberNavController()
-    val users: UserViewModel = viewModel()
     val events: EventViewModel = viewModel()
-
     val user by users.currentUser.collectAsState()
     val onboardingDone by users.isOnboardingCompleted.collectAsState()
-    val sessionChecked by users.sessionChecked.collectAsState()
 
-    if (onboardingDone != null && sessionChecked) {
-
-        val startDestination = when {
-            user != null -> "home"
-            onboardingDone == true -> "login"
-            else -> "onboarding"
+    NavHost(
+        navController,
+        startDestination = if (onboardingDone) "login" else "onboarding",
+    ) {
+        composable("onboarding") {
+            OnboardingScreen {
+                users.completeOnboarding()
+                navController.navigate("login") {
+                    popUpTo("onboarding") { inclusive = true }
+                }
+            }
         }
-
-        NavHost(
-            navController = navController,
-            startDestination = startDestination
-        ) {
-            composable("onboarding") {
-                OnboardingScreen(
-                    onLogin = {
-                        users.completeOnboarding()
-                        navController.navigate("login") {
-                            popUpTo("onboarding") { inclusive = true }
-                        }
-                    },
-                    onRegister = {
-                        users.completeOnboarding()
-                        navController.navigate("register") {
-                            popUpTo("onboarding") { inclusive = true }
-                        }
-                    }
+        composable("login") { LoginScreen(navController, users) }
+        composable("home") {
+            user?.let { current -> AppScaffold(current, users, navController) { EventHomeScreen(events, users, navController) } }
+        }
+        composable("event_search") {
+            EventSearchScreen(events, navController)
+        }
+        composable("my_events") {
+            user?.let { current -> AppScaffold(current, users, navController) { MyEventsScreen(current, events, navController) } }
+        }
+        composable("profile") {
+            user?.let { current -> AppScaffold(current, users, navController) { ProfileScreen(current, users, navController) } }
+        }
+        composable("event_detail/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
+            user?.let { current ->
+                EventDetailScreen(
+                    Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
+                    current,
+                    events,
+                    navController,
                 )
             }
-
-            composable("login") {
-                LoginScreen(navController, users)
-            }
-
-            composable("register") {
-                RegisterScreen(navController = navController, users = users)
-            }
-
-            composable("home") {
-                user?.let { current ->
-                    AppScaffold(current, navController) {
-                        EventHomeScreen(events, navController)
-                    }
-                }
-            }
-
-            composable("my_events") {
-                user?.let { current ->
-                    AppScaffold(current, navController) {
-                        MyEventsScreen(current, events, navController)
-                    }
-                }
-            }
-
-            composable("profile") {
-                user?.let { current ->
-                    AppScaffold(current, navController) {
-                        ProfileScreen(current, users, navController)
-                    }
-                }
-            }
-
-            composable(
-                "event_detail/{eventId}",
-                listOf(navArgument("eventId") { type = NavType.StringType })
-            ) {
-                user?.let { current ->
-                    EventDetailScreen(
-                        Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
-                        current,
-                        events,
-                        navController,
-                    )
-                }
-            }
-
-            composable("event_form") {
-                user?.let { current ->
-                    EventFormScreen(null, current, events, navController)
-                }
-            }
-
-            composable(
-                "event_form/{eventId}",
-                listOf(navArgument("eventId") { type = NavType.StringType })
-            ) {
-                user?.let { current ->
-                    EventFormScreen(
-                        requireNotNull(it.arguments?.getString("eventId")),
-                        current,
-                        events,
-                        navController
-                    )
-                }
-            }
+        }
+        composable("event_form") { user?.let { current -> EventFormScreen(null, current, events, navController) } }
+        composable("event_form/{eventId}", listOf(navArgument("eventId") { type = NavType.StringType })) {
+            user?.let { current -> EventFormScreen(requireNotNull(it.arguments?.getString("eventId")), current, events, navController) }
         }
     }
 }
 
 @Composable
-private fun AppScaffold(user: User, navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
+private fun AppScaffold(user: User, userViewModel: UserViewModel, navController: androidx.navigation.NavHostController, content: @Composable () -> Unit) {
     val tabs = listOf("home" to "Inicio", "my_events" to "Mis eventos", "profile" to "Perfil")
     Scaffold(
         bottomBar = {
