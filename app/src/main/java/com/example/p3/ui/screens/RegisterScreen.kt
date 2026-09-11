@@ -81,7 +81,7 @@ fun RegisterScreen(
                 name = it
                 localError = null
             },
-            label = { Text("Nombre") },
+            label = { Text("Nombre   ") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
