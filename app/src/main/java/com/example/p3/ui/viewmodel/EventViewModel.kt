@@ -1,12 +1,16 @@
 package com.example.p3.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.p3.data.api.GithubRetrofitClient
 import com.example.p3.data.api.RetrofitClient
 import com.example.p3.data.model.Event
 import com.example.p3.data.model.Registration
 import com.example.p3.data.model.Review
 import com.example.p3.data.repository.EventRepository
+import com.example.p3.data.repository.ImageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,8 +27,12 @@ data class EventUiState(
     val message: String? = null,
 )
 
-class EventViewModel : ViewModel() {
+class EventViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = EventRepository(RetrofitClient.apiService)
+    private val imageRepository = ImageRepository(
+        application.contentResolver,
+        GithubRetrofitClient.apiService,
+    )
     private val _uiState = MutableStateFlow(EventUiState())
     val uiState: StateFlow<EventUiState> = _uiState.asStateFlow()
 
@@ -60,12 +68,28 @@ class EventViewModel : ViewModel() {
         }
     }
 
-    fun save(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
+    fun save(event: Event, selectedImageUri: Uri? = null, onSuccess: () -> Unit) = viewModelScope.launch {
+        if (_uiState.value.isLoading) return@launch
         val validation = validate(event)
         if (validation != null) { _uiState.value = _uiState.value.copy(error = validation); return@launch }
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         try {
-            val saved = if (event.id == null) repository.create(event) else repository.update(event)
+            val saved = if (event.id == null) {
+                val created = repository.create(event.copy(coverImage = ""))
+                val imageUrl = selectedImageUri?.let {
+                    imageRepository.uploadEventImage(it, requireNotNull(created.id))
+                }
+                if (imageUrl != null) {
+                    repository.update(created.copy(coverImage = imageUrl))
+                } else {
+                    created
+                }
+            } else {
+                val imageUrl = selectedImageUri?.let {
+                    imageRepository.uploadEventImage(it, requireNotNull(event.id))
+                }
+                repository.update(event.copy(coverImage = imageUrl ?: event.coverImage))
+            }
             val currentEvents = _uiState.value.events
             val updatedEvents = if (event.id == null) {
                 currentEvents + saved

@@ -238,8 +238,10 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
     var date by remember(existing?.id) { mutableStateOf(existing?.date.orEmpty()) }; var time by remember(existing?.id) { mutableStateOf(existing?.time.orEmpty()) }
     var place by remember(existing?.id) { mutableStateOf(existing?.place.orEmpty()) }; var category by remember(existing?.id) { mutableStateOf(existing?.category.orEmpty()) }
     var slots by remember(existing?.id) { mutableStateOf(existing?.availableSlots?.toString() ?: "") }; var image by remember(existing?.id) { mutableStateOf(existing?.coverImage.orEmpty()) }
+    var selectedImageUri by remember(existing?.id) { mutableStateOf<Uri?>(null) }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { selected ->
         runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        selectedImageUri = selected
         image = selected.toString()
     } }
     if (eventId != null && existing != null && !canEdit) {
@@ -267,7 +269,18 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
                 Modifier.fillMaxWidth().aspectRatio(1f),
                 contentScale = ContentScale.Crop,
             )
-            Button(onClick = { viewModel.save(Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.trim(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList())) { navController.popBackStack() } }, modifier = Modifier.fillMaxWidth()) { Text("Guardar") }
+            Button(
+                onClick = {
+                    viewModel.save(
+                        Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.takeUnless { selectedImageUri != null }.orEmpty(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList()),
+                        selectedImageUri,
+                    ) { navController.popBackStack() }
+                },
+                enabled = !state.isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.isLoading) CircularProgressIndicator(strokeWidth = 2.dp) else Text("Guardar")
+            }
         }
     }
 }
@@ -336,8 +349,14 @@ fun MyEventsScreen(user: User, viewModel: EventViewModel, navController: NavCont
 fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavController) {
     val context = LocalContext.current
     val profileError by userViewModel.error.collectAsState()
+    val isLoading by userViewModel.isLoading.collectAsState()
     var editing by remember { mutableStateOf(false) }; var name by remember(user.id) { mutableStateOf(user.name) }; var email by remember(user.id) { mutableStateOf(user.email) }; var phone by remember(user.id) { mutableStateOf(user.phone) }; var city by remember(user.id) { mutableStateOf(user.city) }; var avatar by remember(user.id) { mutableStateOf(user.avatar.orEmpty()) }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { selected -> runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }; avatar = selected.toString() } }
+    var selectedImageUri by remember(user.id) { mutableStateOf<Uri?>(null) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { selected ->
+        runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        selectedImageUri = selected
+        avatar = selected.toString()
+    } }
     Scaffold(topBar = { TopAppBar(title = { Text("Mi perfil") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding -> Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         profileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (avatar.isNotBlank()) AsyncImage(
@@ -349,14 +368,37 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
                 .clip(CircleShape),
             contentScale = ContentScale.Crop,
         )
-        if (editing) OutlinedButton({ imagePicker.launch(arrayOf("image/*")) }) { Text("Seleccionar foto") }
+        if (editing) OutlinedButton({
+            imagePicker.launch(arrayOf("image/jpeg", "image/png"))
+        }, enabled = !isLoading) { Text("Seleccionar foto") }
         AppField(name, { name = it }, "Nombre", readOnly = !editing)
         AppField(email, { email = it }, "Email", readOnly = !editing)
         AppField(phone, { phone = it }, "Teléfono", readOnly = !editing)
         AppField(city, { city = it }, "Ciudad", readOnly = !editing)
         if (editing) {
-            Button({ userViewModel.updateProfile(user.copy(name = name, email = email, phone = phone, city = city, avatar = avatar)) { editing = false } }, Modifier.fillMaxWidth()) { Text("Guardar perfil") }
-            TextButton({ editing = false; name = user.name; email = user.email; phone = user.phone; city = user.city; avatar = user.avatar.orEmpty() }, Modifier.fillMaxWidth()) { Text("Cancelar") }
+            Button(
+                {
+                    userViewModel.updateProfile(
+                        user.copy(
+                            name = name,
+                            email = email,
+                            phone = phone,
+                            city = city,
+                            avatar = user.avatar,
+                        ),
+                        selectedImageUri,
+                    ) { editing = false }
+                },
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (isLoading) CircularProgressIndicator(strokeWidth = 2.dp) else Text("Guardar perfil")
+            }
+            TextButton({
+                editing = false
+                selectedImageUri = null
+                name = user.name; email = user.email; phone = user.phone; city = user.city; avatar = user.avatar.orEmpty()
+            }, enabled = !isLoading, modifier = Modifier.fillMaxWidth()) { Text("Cancelar") }
         } else {
             Button({ editing = true }, Modifier.fillMaxWidth()) { Text("Actualizar perfil") }
         }

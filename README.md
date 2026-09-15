@@ -61,3 +61,16 @@ app/src/main/java/com/example/p3/
 
 ---
 Desarrollado como una solución integral para la gestión de eventos modernos.
+
+## Configuración de subida de imágenes
+
+La app sube las imágenes mediante GitHub REST API al repositorio externo
+`Esthefany-Chavez/EvoriaImages`. Antes de compilar, agrega localmente en
+`local.properties`:
+
+```properties
+github.token=TU_TOKEN_DE_GITHUB
+```
+
+El archivo `local.properties` está excluido de Git. El token debe ser un Fine-grained
+Personal Access Token con acceso de escritura únicamente al contenido de ese repositorio.

@@ -1,10 +1,13 @@
 package com.example.p3.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.p3.data.api.GithubRetrofitClient
 import com.example.p3.data.api.RetrofitClient
 import com.example.p3.data.model.User
+import com.example.p3.data.repository.ImageRepository
 import com.example.p3.data.repository.UserRepository
 import com.example.p3.data.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +18,10 @@ import kotlinx.coroutines.launch
 
 class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = UserRepository(RetrofitClient.apiService)
+    private val imageRepository = ImageRepository(
+        application.contentResolver,
+        GithubRetrofitClient.apiService,
+    )
     private val sessionManager = SessionManager(application)
 
     private val _users = MutableStateFlow<List<User>>(emptyList())
@@ -138,14 +145,23 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateProfile(user: User, onSuccess: () -> Unit) {
+    fun updateProfile(user: User, selectedImageUri: Uri? = null, onSuccess: () -> Unit) {
         if (user.name.isBlank() || user.email.isBlank() || user.phone.isBlank() || user.city.isBlank()) {
             _error.value = "Completa todos los campos del perfil"
             return
         }
+        if (_isLoading.value) return
         viewModelScope.launch {
+            _isLoading.value = true
             try {
-                val updated = repository.updateUser(requireNotNull(user.id), user)
+                val userId = requireNotNull(user.id)
+                val imageUrl = selectedImageUri?.let {
+                    imageRepository.uploadUserImage(it, userId)
+                }
+                val updated = repository.updateUser(
+                    userId,
+                    user.copy(avatar = imageUrl ?: user.avatar),
+                )
                 _loginResult.value = updated
                 sessionManager.saveUserId(requireNotNull(updated.id))
                 _users.value = _users.value.map { if (it.id == updated.id) updated else it }
@@ -153,6 +169,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                 onSuccess()
             } catch (e: Exception) {
                 _error.value = "No fue posible actualizar el perfil: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

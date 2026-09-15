@@ -1,4 +1,11 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+val localProperties = Properties()
+rootProject.file("local.properties").inputStream().use { localProperties.load(it) }
+val githubToken = localProperties.getProperty("github.token", "")
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -18,6 +25,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GITHUB_TOKEN", "\"$githubToken\"")
     }
 
     buildTypes {
@@ -35,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
