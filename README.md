@@ -1,63 +1,130 @@
-# Evoria - Gestión de Eventos 📅
+# 🎉 EVORIA
 
-Evoria es una aplicación Android moderna diseñada para centralizar la planificación, descubrimiento y gestión de eventos. Desde la coordinación de recursos hasta la inscripción de asistentes, Evoria ofrece una experiencia fluida y elegante para organizadores y participantes.
+> 💡 **Plataforma móvil integral para la creación, gestión y descubrimiento de eventos.**
 
-## 🚀 Características Principales
+EVORIA es una aplicación Android moderna diseñada para centralizar la planificación de eventos, la coordinación de recursos y la interacción entre organizadores y asistentes. Desde la bienvenida hasta la calificación post-evento, ofrece una experiencia fluida y profesional.
 
-- **Experiencia de Bienvenida:** Proceso de **Onboarding** dinámico que introduce las capacidades de la plataforma.
-- **Autenticación y Sesión:** Sistema de login seguro con persistencia de sesión mediante **DataStore**.
-- **Gestión de Perfil:** Personalización completa de datos, incluyendo carga de fotos de perfil.
-- **Exploración Visual:** Pantalla de inicio con tarjetas tipo poster diseñadas para una navegación intuitiva y visualmente atractiva.
-- **Generación de Códigos QR:** Generación instantánea de códigos QR para la ubicación de eventos, integrando enlaces directos a **Google Maps**.
-- **Detalle de Eventos:** Información exhaustiva: ubicación, cronograma, cupos en tiempo real y sistema de reseñas.
-- **Gestión Integral:** Herramientas para creadores que permiten subir imágenes, definir categorías y administrar la disponibilidad de cupos.
-- **Inscripción y Feedback:** Inscripción con un clic y sistema de calificación post-evento.
+---
 
-## 🛠️ Stack Tecnológico
+## 👋 Experiencia de Bienvenida (Onboarding)
 
-- **Lenguaje:** [Kotlin](https://kotlinlang.org/) (Coroutines & Flows)
-- **UI Framework:** [Jetpack Compose](https://developer.android.com/jetpack/compose) con **Material 3**.
-- **Arquitectura:** MVVM (Model-View-ViewModel) con StateFlow.
-- **Redes:** [Retrofit 2](https://square.github.io/retrofit/) & OkHttp para integración con API (MockAPI).
-- **Imágenes:** [Coil](https://coil-kt.github.io/coil/) para carga asíncrona y caché de imágenes.
-- **Utilidades:** 
-    - **ZXing:** Para la generación de códigos QR de ubicación.
-    - **DataStore:** Para gestión de preferencias y sesiones.
-- **Tipografía:** Fuente **Tinos** (Google Fonts) en todas sus variantes para un estilo profesional.
+La aplicación implementa un flujo de bienvenida obligatorio de **3 páginas** diseñado para introducir al usuario en la plataforma:
+
+*   **Navegación Inteligente:** Proceso guiado mediante un `HorizontalPager`. Se ha eliminado el botón "Omitir" para asegurar que los nuevos usuarios conozcan las capacidades clave.
+*   **Acceso Rápido:** La primera página incluye el enlace **"¿Ya tienes una cuenta? Inicia sesión"** para usuarios recurrentes.
+*   **Conversión:** La última página concluye con el botón **"Registrarse"** para nuevos miembros.
+
+## 🔐 Autenticación y Sesión
+
+EVORIA garantiza una gestión de identidad robusta y persistente:
+
+*   **Registro de Usuarios:** Formulario detallado que captura nombre, correo, contraseña, teléfono y ciudad, almacenando los datos en **MockAPI**.
+*   **Login Seguro:** Validación de credenciales en tiempo real contra el servidor.
+*   **Persistencia (DataStore):** Utiliza **Jetpack DataStore Preferences** para almacenar el `user_id` y el estado del onboarding.
+*   **Comportamiento de Inicio:** Si el usuario tiene una sesión activa, la aplicación omite el Onboarding y el Login, navegando directamente al **Home**.
+*   **Cierre de Sesión:** Al cerrar sesión, se eliminan los datos locales de DataStore y se reinicia el flujo desde la primera página del Onboarding.
+
+## 👤 Perfil del Usuario
+
+Un centro de control personalizable para cada miembro:
+
+*   **Gestión de Datos:** Visualización y edición de nombre, correo, teléfono y ciudad.
+*   **Foto de Perfil:** Carga dinámica de imágenes desde la galería del dispositivo, con almacenamiento persistente en la nube.
+*   **Secciones de Actividad:**
+    *   **⭐ Populares:** Muestra eventos creados por el usuario con una valoración promedio entre **4.5 y 5.0**.
+    *   **📅 Próximos:** Lista de eventos en los que el usuario está inscrito que ocurrirán en los **siguientes 7 días**.
+*   **Confirmación de Cambios:** Diálogos de seguridad para guardar datos o actualizar la foto de perfil.
+
+## 🎫 Gestión de Eventos
+
+El núcleo funcional de la aplicación permite un control total sobre las actividades:
+
+*   **CRUD Completo:** Creación, lectura, edición y eliminación de eventos por parte de sus organizadores.
+*   **Detalle de Eventos:** Información exhaustiva que incluye descripción, ubicación, cronograma, categoría y cupos disponibles en tiempo real.
+*   **Inscripción Dinámica:** Registro de asistentes con actualización automática de cupos disponibles y opción de desinscripción.
+*   **Búsqueda y Exploración:** Pantalla dedicada para filtrar eventos por **nombre, categoría o fecha** de forma reactiva.
+*   **⭐ Reseñas y Calificaciones:** Sistema de feedback para eventos ya finalizados, permitiendo una valoración de 1 a 5 estrellas y comentarios.
+*   **📍 Código QR:** Generación instantánea de códigos QR basados en la ubicación del evento, vinculando directamente a **Google Maps**.
+
+## 🖼️ Gestión de Imágenes (GitHub API)
+
+EVORIA utiliza una arquitectura innovadora para el manejo de archivos multimedia:
+
+*   **Almacenamiento:** Integración con el repositorio `Esthefany-Chavez/EvoriaImages` mediante **GitHub REST API**.
+*   **Organización:** Las imágenes se clasifican automáticamente en las rutas `/users` y `/events`.
+*   **Especificaciones Técnicas:**
+    *   Formatos permitidos: **JPG, JPEG, PNG**.
+    *   Límite de tamaño: **5 MB** por archivo.
+    *   Seguridad: Los nombres de archivo son únicos (ID + UUID) y se codifican en **Base64** para la subida.
+*   **URLs persistentes:** Las rutas resultantes se almacenan en MockAPI para su consumo global.
+
+## 🌐 APIs y Servicios
+
+| Servicio | Propósito | Principales Endpoints |
+| :--- | :--- | :--- |
+| **MockAPI** | Persistencia de datos de negocio | `GET /Evento`, `POST /user`, `PUT /Evento/{id}` |
+| **GitHub REST API** | Almacenamiento de multimedia | `PUT /repos/.../contents/{path}` |
+
+## 🏗️ Arquitectura
+
+La aplicación sigue el patrón **MVVM (Model-View-ViewModel)**, asegurando un código limpio, testeable y mantenible:
+
+```text
+UI (Jetpack Compose) 
+     ↓
+ViewModel (StateFlow & Coroutines)
+     ↓
+Repository (Abstracción de datos)
+     ↓
+API (Retrofit / OkHttp)
+```
+
+*   **UI:** Componentes declarativos y reactivos.
+*   **ViewModel:** Gestión del estado de la pantalla y lógica de negocio.
+*   **Repository:** Centraliza el acceso a datos desde la API y DataStore.
+
+## 🛠️ Tecnologías Principales
+
+*   **Lenguaje:** Kotlin (Coroutines & Flows).
+*   **UI:** Jetpack Compose con Material 3.
+*   **Redes:** Retrofit 2 & OkHttpClient (con Logging Interceptor).
+*   **Imágenes:** Coil (Carga asíncrona y caché eficiente).
+*   **Persistencia:** DataStore Preferences.
+*   **Utilidades:** ZXing (Generación de QR), Gson (Serialización).
 
 ## 🎨 Identidad Visual
 
-Evoria utiliza una paleta de colores sofisticada diseñada para transmitir confianza y elegancia:
-- **Navy (#2F4156):** Autoridad y profesionalismo.
-- **Teal (#567C8D):** Modernidad y tecnología.
-- **Beige (#F5EFE6):** Calidez y equilibrio.
-- **Gradientes:** Fondos radiales y lineales que aportan profundidad a la interfaz.
+*   **Paleta de Colores:**
+    *   **Navy (`#2F4156`):** Elegancia y profesionalismo.
+    *   **Teal (`#567C8D`):** Modernidad y tecnología.
+    *   **Beige (`#F5EFE6`):** Equilibrio y calidez.
+*   **Tipografía:** Fuente **Tinos** (Serif) para un estilo editorial y legible.
+*   **Interfaz:** Fondos con gradientes radiales y lineales, tarjetas con elevación y componentes redondeados.
 
-## 📁 Estructura del Proyecto
+## ⚙️ Configuración Local
 
-```text
-app/src/main/java/com/example/p3/
-├── data/
-│   ├── api/          # Cliente Retrofit e interfaces de servicio
-│   ├── model/        # Modelos (Event, User, Registration, Review)
-│   ├── repository/   # Repositorios de datos
-│   └── session/      # SessionManager con DataStore
-├── ui/
-│   ├── screens/      # Pantallas (Onboarding, Login, EventScreens, etc.)
-│   ├── theme/        # Tematización M3 (Color, Typography, Theme)
-│   └── viewmodel/    # ViewModels para gestión de estado
-└── MainActivity.kt   # Router y punto de entrada
+Para habilitar la subida de imágenes, el proyecto requiere un token personal de GitHub:
+
+1.  Crea un archivo `local.properties` en la raíz del proyecto (si no existe).
+2.  Agrega la siguiente línea con tu token (con permisos de `repo` o `contents`):
+    ```properties
+    github.token=TU_TOKEN_AQUÍ
+    ```
+3.  **Seguridad:** El archivo `local.properties` está excluido de Git por defecto. Nunca compartas ni subas tu token real.
+
+## 🚀 Ejecución y Compilación
+
+Para compilar el proyecto en modo depuración:
+```bash
+./gradlew assembleDebug
 ```
 
-## 📦 Instalación y Uso
+Para ejecutar las pruebas unitarias:
+```bash
+./gradlew test
+```
 
-1. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/SalomeGarcia2006/EvoriaApp
-   ```
-2. Abrir el proyecto en **Android Studio** (Koala o superior).
-3. Sincronizar Gradle para descargar las dependencias.
-4. Ejecutar en un emulador o dispositivo físico con **Android 7.0 (API 24)** o superior.
+Requisitos mínimos: **Android 7.0 (API 24)**.
 
 ---
-Desarrollado como una solución integral para la gestión de eventos modernos.
+© 2026 EVORIA - Gestión Profesional de Eventos.
