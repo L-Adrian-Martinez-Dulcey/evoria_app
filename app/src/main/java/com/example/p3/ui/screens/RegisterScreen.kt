@@ -353,8 +353,8 @@ fun RegisterScreen(
                                 localError = "Ingresa un correo válido"
                             }
 
-                            password.length < 6 -> {
-                                localError = "La contraseña debe tener al menos 6 caracteres"
+                            password.length < 8 -> {
+                                localError = "La contraseña debe tener al menos 8 caracteres"
                             }
 
                             else -> {

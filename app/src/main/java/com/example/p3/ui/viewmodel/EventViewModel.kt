@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
+import java.text.ParsePosition
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
@@ -134,14 +135,24 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun delete(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
+    fun delete(event: Event, userId: String, onSuccess: () -> Unit) = viewModelScope.launch {
         val id = requireNotNull(event.id)
+        if (event.creatorId != userId) {
+            fail("Solo el creador puede eliminar este evento.")
+            return@launch
+        }
+        if (_uiState.value.isLoading) return@launch
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         _uiState.value = _uiState.value.copy(events = _uiState.value.events - event, message = "Evento eliminado")
         runCatching { repository.delete(id) }
-            .onSuccess { onSuccess() }
+            .onSuccess {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                onSuccess()
+            }
             .onFailure {
                 _uiState.value = _uiState.value.copy(
                     events = _uiState.value.events + event,
+                    isLoading = false,
                     error = "No fue posible eliminar: ${it.message}",
                 )
             }
@@ -244,10 +255,46 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addReview(event: Event, userId: String, rating: Int, comment: String) {
-        if (!event.hasEnded()) return fail("Solo puedes calificar eventos finalizados.")
-        if (rating !in 1..5 || comment.isBlank()) return fail("Indica una calificación de 1 a 5 y un comentario.")
-        if (event.reviews.any { it.userId == userId }) return fail("Ya calificaste este evento.")
-        updateEvent(event.copy(reviews = event.reviews + Review(UUID.randomUUID().toString(), event.id.orEmpty(), userId, rating, comment.trim())), "Reseña publicada")
+        val eventId = event.id ?: return fail("No fue posible identificar el evento.")
+        viewModelScope.launch {
+            if (_uiState.value.isLoading) return@launch
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val latest = repository.getEvent(eventId)
+                when {
+                    !latest.hasEnded() -> fail("Solo puedes calificar eventos finalizados.")
+                    latest.registrations.none { it.userId == userId } ->
+                        fail("Solo los asistentes inscritos pueden calificar el evento.")
+                    rating !in 1..5 || comment.trim().isBlank() ->
+                        fail("Indica una calificación de 1 a 5 y un comentario.")
+                    comment.trim().length > 500 ->
+                        fail("El comentario no puede superar 500 caracteres.")
+                    latest.reviews.any { it.userId == userId } ->
+                        fail("Ya calificaste este evento.")
+                    else -> {
+                        val updated = repository.update(
+                            latest.copy(
+                                reviews = latest.reviews + Review(
+                                    UUID.randomUUID().toString(),
+                                    eventId,
+                                    userId,
+                                    rating,
+                                    comment.trim(),
+                                ),
+                            ),
+                        )
+                        replaceEvent(updated)
+                        _uiState.value = _uiState.value.copy(message = "Reseña publicada")
+                    }
+                }
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "No fue posible publicar la reseña: ${error.message}",
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
     }
 
     fun clearMessage() { _uiState.value = _uiState.value.copy(error = null, message = null) }
@@ -280,15 +327,20 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun validate(event: Event): String? = when {
         listOf(event.title, event.description, event.date, event.time, event.place, event.category).any { it.isBlank() } -> "Completa todos los campos obligatorios."
-        event.availableSlots < 0 -> "Los cupos no pueden ser negativos."
-        !isValidFutureDate(event.date) -> "La fecha debe ser desde mañana y tener formato AAAA-MM-DD."
+        event.title.trim().length !in 3..100 -> "El título debe tener entre 3 y 100 caracteres."
+        event.description.trim().length !in 10..2000 -> "La descripción debe tener entre 10 y 2000 caracteres."
+        event.place.trim().length !in 2..200 -> "El lugar debe tener entre 2 y 200 caracteres."
+        event.category.trim().length !in 2..60 -> "La categoría debe tener entre 2 y 60 caracteres."
+        event.availableSlots <= 0 -> "Los cupos deben ser mayores que cero."
+        !isValidDateTime(event.date, event.time) -> "La fecha y hora deben ser válidas y futuras."
         else -> null
     }
-    private fun isValidFutureDate(value: String): Boolean = runCatching {
-        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-        val selected = format.parse(value) ?: return false
-        val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
-        !selected.before(tomorrow)
+    private fun isValidDateTime(date: String, time: String): Boolean = runCatching {
+        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+        val value = "$date $time"
+        val position = ParsePosition(0)
+        val selected = format.parse(value, position) ?: return false
+        position.index == value.length && selected.after(Calendar.getInstance().time)
     }.getOrDefault(false)
     private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
     private fun fail(message: String) { _uiState.value = _uiState.value.copy(error = message) }

@@ -2,6 +2,7 @@ package com.example.p3.ui.viewmodel
 
 import android.app.Application
 import android.net.Uri
+import android.util.Patterns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.p3.data.api.GithubRetrofitClient
@@ -116,11 +117,30 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         city: String,
         onSuccess: () -> Unit
     ) {
+        val normalizedEmail = email.trim().lowercase()
+        if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
+            _error.value = "Ingresa un correo válido"
+            return
+        }
+        if (password.length < 8) {
+            _error.value = "La contraseña debe tener al menos 8 caracteres"
+            return
+        }
+        if (name.trim().length !in 2..80 || phone.trim().length !in 7..20 || city.trim().length !in 2..80) {
+            _error.value = "Verifica la longitud de tus datos"
+            return
+        }
+        if (_isLoading.value) return
         viewModelScope.launch {
+            _isLoading.value = true
             try {
+                if (repository.getUserByEmail(normalizedEmail).isNotEmpty()) {
+                    _error.value = "Ya existe una cuenta con ese correo"
+                    return@launch
+                }
                 val user = User(
-                    name = name,
-                    email = email,
+                    name = name.trim(),
+                    email = normalizedEmail,
                     password = password,
                     phone = phone,
                     city = city
@@ -130,6 +150,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                 onSuccess()
             } catch (e: Exception) {
                 _error.value = "No fue posible crear la cuenta: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -137,7 +159,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     fun updateUser(id: String, name: String, email: String) {
         viewModelScope.launch {
             try {
-                repository.updateUser(id, User(id = id, name = name, email = email))
+                val current = repository.getUser(id)
+                repository.updateUser(id, current.copy(name = name.trim(), email = email.trim().lowercase()))
                 fetchUsers()
             } catch (e: Exception) {
                 _error.value = e.message
@@ -146,8 +169,12 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateProfile(user: User, selectedImageUri: Uri? = null, onSuccess: () -> Unit) {
-        if (user.name.isBlank() || user.email.isBlank() || user.phone.isBlank() || user.city.isBlank()) {
-            _error.value = "Completa todos los campos del perfil"
+        if (user.name.trim().length !in 2..80 ||
+            !Patterns.EMAIL_ADDRESS.matcher(user.email.trim()).matches() ||
+            user.phone.trim().length !in 7..20 ||
+            user.city.trim().length !in 2..80
+        ) {
+            _error.value = "Completa correctamente los datos del perfil"
             return
         }
         if (_isLoading.value) return
@@ -155,12 +182,23 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true
             try {
                 val userId = requireNotNull(user.id)
+                val normalizedEmail = user.email.trim().lowercase()
+                if (repository.getUserByEmail(normalizedEmail).any { it.id != userId }) {
+                    _error.value = "Ya existe una cuenta con ese correo"
+                    return@launch
+                }
                 val imageUrl = selectedImageUri?.let {
                     imageRepository.uploadUserImage(it, userId)
                 }
                 val updated = repository.updateUser(
                     userId,
-                    user.copy(avatar = imageUrl ?: user.avatar),
+                    user.copy(
+                        name = user.name.trim(),
+                        email = normalizedEmail,
+                        phone = user.phone.trim(),
+                        city = user.city.trim(),
+                        avatar = imageUrl ?: user.avatar,
+                    ),
                 )
                 _loginResult.value = updated
                 sessionManager.saveUserId(requireNotNull(updated.id))
@@ -187,9 +225,16 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loginUser(email: String, password: String) {
+        val normalizedEmail = email.trim().lowercase()
+        if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches() || password.isBlank()) {
+            _loginError.value = "Ingresa un correo y contraseña válidos"
+            return
+        }
+        if (_isLoading.value) return
         viewModelScope.launch {
+            _isLoading.value = true
             try {
-                val users = repository.getUserByEmail(email)
+                val users = repository.getUserByEmail(normalizedEmail)
 
                 if (users.isEmpty()) {
                     _loginError.value = "Usuario no encontrado"
@@ -211,6 +256,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             } catch (_: Exception) {
                 _loginError.value = "Error de conexión"
                 _loginResult.value = null
+            } finally {
+                _isLoading.value = false
             }
         }
     }

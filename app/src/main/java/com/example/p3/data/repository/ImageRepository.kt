@@ -64,6 +64,9 @@ class ImageRepository(
             ),
         )
 
+        require(response.content?.path == path) {
+            "GitHub upload was not confirmed."
+        }
         return evoriaCdnUrl(path)
     }
 

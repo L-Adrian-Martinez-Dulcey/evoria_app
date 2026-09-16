@@ -2,6 +2,7 @@ package com.example.p3.data.model
 
 import com.google.gson.annotations.SerializedName
 import java.text.SimpleDateFormat
+import java.text.ParsePosition
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -27,7 +28,10 @@ data class Event(
         val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply {
             isLenient = false
         }
-        format.parse("$date $time")?.before(now) == true
+        val value = "$date $time"
+        val position = ParsePosition(0)
+        val parsed = format.parse(value, position)
+        parsed != null && position.index == value.length && parsed.before(now)
     }.getOrDefault(false)
 }
 

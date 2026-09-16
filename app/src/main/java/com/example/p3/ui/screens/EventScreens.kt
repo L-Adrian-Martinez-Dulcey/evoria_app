@@ -65,8 +65,10 @@ import java.util.Locale
 fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
     val isDarkMode by userViewModel.isDarkMode.collectAsState()
-    EventFeedback(state.error, state.message) { viewModel.clearMessage() }
+    val feedbackHost = remember { SnackbarHostState() }
+    EventFeedback(state.error, state.message, feedbackHost) { viewModel.clearMessage() }
     Scaffold(
+        snackbarHost = { SnackbarHost(feedbackHost) },
         topBar = {
             TopAppBar(
                 title = { Text("Evoria") },
@@ -437,7 +439,7 @@ fun EventDetailScreen(
             }
         }
     }
-    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("¿Eliminar evento?") }, text = { Text("Esta acción no se puede deshacer.") }, confirmButton = { TextButton({ viewModel.delete(event) { navController.popBackStack() } }) { Text("Eliminar") } }, dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancelar") } })
+    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("¿Eliminar evento?") }, text = { Text("Esta acción no se puede deshacer.") }, confirmButton = { TextButton({ viewModel.delete(event, user.id.orEmpty()) { navController.popBackStack() } }) { Text("Eliminar") } }, dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancelar") } })
     if (confirmUnregister) {
         AlertDialog(
             onDismissRequest = { confirmUnregister = false },
@@ -1099,7 +1101,9 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
 
     val upcomingEvents = eventState.events
         .filter { event ->
-            event.registrations.any { it.userId == user.id } && isWithinNextSevenDays(event.date)
+            event.registrations.any { it.userId == user.id } &&
+                !event.hasEnded() &&
+                isWithinNextSevenDays(event.date, event.time)
         }
         .sortedWith(compareBy<Event> { it.date }.thenBy { it.time })
     val popularEvents = eventState.events
@@ -1643,9 +1647,9 @@ private fun UpcomingEventCard(event: Event, onClick: () -> Unit) {
     }
 }
 
-private fun isWithinNextSevenDays(date: String): Boolean = runCatching {
-    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-    val eventDate = format.parse(date) ?: return false
+private fun isWithinNextSevenDays(date: String, time: String): Boolean = runCatching {
+    val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+    val eventDate = format.parse("$date $time") ?: return false
     val today = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
@@ -1658,11 +1662,23 @@ private fun isWithinNextSevenDays(date: String): Boolean = runCatching {
     !eventDate.before(today.time) && !eventDate.after(limit.time)
 }.getOrDefault(false)
 
-@Composable private fun EventFeedback(error: String?, message: String?, clear: () -> Unit) { if (error != null || message != null) LaunchedEffect(error, message) { /* El estado se visualiza en cada pantalla sin ocultar errores. */ } }
+@Composable
+private fun EventFeedback(
+    error: String?,
+    message: String?,
+    host: SnackbarHostState,
+    clear: () -> Unit,
+) {
+    LaunchedEffect(error, message) {
+        val text = error ?: message
+        if (text != null) {
+            host.showSnackbar(text)
+            clear()
+        }
+    }
+}
 @Composable private fun ReviewDialog(onDismiss: () -> Unit, save: (Int, String) -> Unit) { var rating by remember { mutableStateOf("") }; var comment by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Calificar evento") }, text = { Column { AppField(rating, { rating = it }, "Puntaje (1-5)", KeyboardType.Number); AppField(comment, { comment = it }, "Comentario", single = false) } }, confirmButton = { TextButton({ save(rating.toIntOrNull() ?: 0, comment) }) { Text("Publicar") } }, dismissButton = { TextButton(onDismiss) { Text("Cancelar") } }) }
 private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
-private fun hasFinished(date: String) = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
-
 private fun generateQrCode(text: String): ImageBitmap? {
     return try {
         val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)
