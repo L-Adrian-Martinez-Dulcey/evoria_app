@@ -34,6 +34,12 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError
+
+    private val _profileError = MutableStateFlow<String?>(null)
+    val profileError: StateFlow<String?> = _profileError
+
     private val _loginResult = MutableStateFlow<User?>(null)
     val loginResult: StateFlow<User?> = _loginResult
 
@@ -129,32 +135,32 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         val normalizedEmail = email.trim().lowercase()
         if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
-            _error.value = "Ingresa un correo válido"
+            _authError.value = "Ingresa un correo válido"
             return
         }
         if (password.length < 8) {
-            _error.value = "La contraseña debe tener al menos 8 caracteres"
+            _authError.value = "La contraseña debe tener al menos 8 caracteres"
             return
         }
         if (name.trim().length !in 2..80 || phone.trim().length !in 7..20 || city.trim().length !in 2..80) {
-            _error.value = "Verifica la longitud de tus datos"
+            _authError.value = "Verifica la longitud de tus datos"
             return
         }
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
+            _authError.value = null
             try {
                 if (name.isBlank() || phone.isBlank() || city.isBlank()) {
-                    _error.value = "Completa todos los campos"
+                    _authError.value = "Completa todos los campos"
                     return@launch
                 }
                 if (password.length < 8) {
-                    _error.value = "La contraseña debe tener al menos 8 caracteres"
+                    _authError.value = "La contraseña debe tener al menos 8 caracteres"
                     return@launch
                 }
                 if (repository.getUserByEmail(normalizedEmail).isNotEmpty()) {
-                    _error.value = "Ya existe una cuenta con ese correo"
+                    _authError.value = "Ya existe una cuenta con ese correo"
                     return@launch
                 }
                 val user = User(
@@ -165,10 +171,10 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                     city = city.trim()
                 )
                 repository.createUser(user)
-                _error.value = null
+                _authError.value = null
                 onSuccess()
             } catch (e: Exception) {
-                _error.value = "No fue posible crear la cuenta: ${e.message}"
+                _authError.value = "No fue posible crear la cuenta: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -193,24 +199,25 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             user.phone.trim().length !in 7..20 ||
             user.city.trim().length !in 2..80
         ) {
-            _error.value = "Completa correctamente los datos del perfil"
+            _profileError.value = "Completa correctamente los datos del perfil"
             return
         }
         val normalizedEmail = user.email.trim().lowercase()
         if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
-            _error.value = "Ingresa un correo válido"
+            _profileError.value = "Ingresa un correo válido"
             return
         }
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
+            _profileError.value = null
             try {
                 val userId = requireNotNull(user.id)
                 val normalizedEmail = user.email.trim().lowercase()
                 val emailOwner = repository.getUserByEmail(normalizedEmail)
                     .firstOrNull { it.id != userId }
                 if (emailOwner != null) {
-                    _error.value = "Ya existe una cuenta con ese correo"
+                    _profileError.value = "Ya existe una cuenta con ese correo"
                     return@launch
                 }
                 val imageUrl = selectedImageUri?.let {
@@ -229,10 +236,10 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                 _loginResult.value = updated
                 sessionManager.saveUserId(requireNotNull(updated.id))
                 _users.value = _users.value.map { if (it.id == updated.id) updated else it }
-                _error.value = null
+                _profileError.value = null
                 onSuccess()
             } catch (e: Exception) {
-                _error.value = "No fue posible actualizar el perfil: ${e.message}"
+                _profileError.value = "No fue posible actualizar el perfil: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -291,6 +298,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearErrors() {
         _error.value = null
+        _authError.value = null
+        _profileError.value = null
         _loginError.value = null
     }
 

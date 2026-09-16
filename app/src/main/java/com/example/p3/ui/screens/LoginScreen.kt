@@ -382,6 +382,22 @@ fun LoginScreen(navController: NavController, userViewModel: UserViewModel) {
 
             // Espacio inferior (solo para equilibrio visual)
             Spacer(modifier = Modifier.height(4.dp))
+
+            TextButton(
+                onClick = {
+                    navController.navigate("register") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "¿No tienes una cuenta? Crear cuenta",
+                    color = navy,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }

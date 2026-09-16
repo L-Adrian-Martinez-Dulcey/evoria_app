@@ -34,14 +34,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,8 +78,20 @@ fun RegisterScreen(
     var city by remember { mutableStateOf("") }
 
     var localError by remember { mutableStateOf<String?>(null) }
-    val error by users.error.collectAsState()
+    var registrationCompleted by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val error by users.authError.collectAsState()
     val isRegistering by users.isAuthLoading.collectAsState()
+
+    LaunchedEffect(registrationCompleted) {
+        if (registrationCompleted) {
+            snackbarHostState.showSnackbar("Usuario creado correctamente")
+            delay(900)
+            navController.navigate("login") {
+                popUpTo("register") { inclusive = true }
+            }
+        }
+    }
 
     val navy = Color(0xFF2F4156)
     val teal = Color(0xFF567C8D)
@@ -358,11 +374,7 @@ fun RegisterScreen(
                                     phone = phone.trim(),
                                     city = city.trim()
                                 ) {
-                                    navController.navigate("login") {
-                                        popUpTo("register") {
-                                            inclusive = true
-                                        }
-                                    }
+                                    registrationCompleted = true
                                 }
                             }
                         }
@@ -438,6 +450,13 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
+        )
     }
 }
 
