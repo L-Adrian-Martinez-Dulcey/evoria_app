@@ -121,6 +121,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun register(event: Event, userId: String) = viewModelScope.launch {
+        if (_uiState.value.isLoading) return@launch
         when {
             event.creatorId == userId -> fail("No puedes inscribirte a tu propio evento.")
             event.availableSlots <= 0 -> fail("No hay cupos disponibles.")
@@ -135,6 +136,19 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun unregister(event: Event, userId: String) = viewModelScope.launch {
+        if (_uiState.value.isLoading) return@launch
+        val registration = event.registrations.firstOrNull { it.userId == userId }
+            ?: return@launch
+        updateEvent(
+            event.copy(
+                availableSlots = event.availableSlots + 1,
+                registrations = event.registrations.filterNot { it.userId == registration.userId },
+            ),
+            "Inscripción cancelada correctamente.",
+        )
+    }
+
     fun addReview(event: Event, userId: String, rating: Int, comment: String) {
         if (!isFinished(event.date)) return fail("Solo puedes calificar eventos finalizados.")
         if (rating !in 1..5 || comment.isBlank()) return fail("Indica una calificación de 1 a 5 y un comentario.")
@@ -145,6 +159,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     fun clearMessage() { _uiState.value = _uiState.value.copy(error = null, message = null) }
 
     private fun updateEvent(event: Event, success: String) = viewModelScope.launch {
+        if (_uiState.value.isLoading) return@launch
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         val previous = _uiState.value.events.firstOrNull { it.id == event.id }
         _uiState.value = _uiState.value.copy(
             events = _uiState.value.events.map { if (it.id == event.id) event else it },
@@ -154,6 +170,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             .onSuccess { updated ->
                 _uiState.value = _uiState.value.copy(
                     events = _uiState.value.events.map { if (it.id == updated.id) updated else it },
+                    isLoading = false,
                 )
             }
             .onFailure {
@@ -161,6 +178,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                     events = previous?.let { old ->
                         _uiState.value.events.map { if (it.id == old.id) old else it }
                     } ?: _uiState.value.events,
+                    isLoading = false,
                     error = "No fue posible actualizar el evento: ${it.message}",
                 )
             }

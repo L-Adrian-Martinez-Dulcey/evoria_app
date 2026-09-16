@@ -130,6 +130,7 @@ private fun EvoriaApp(users: UserViewModel) {
                         Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
                         current,
                         events,
+                        users.users.collectAsState().value,
                         navController,
                     )
                 }
