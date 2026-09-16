@@ -31,6 +31,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.p3.data.model.User
+import com.example.p3.data.image.fastImageUrl
 import com.example.p3.ui.screens.*
 import com.example.p3.ui.theme.AppTheme
 import com.example.p3.ui.viewmodel.EventViewModel
@@ -178,7 +179,7 @@ private fun AppScaffold(user: User, userViewModel: UserViewModel, navController:
                         icon = {
                             if (route == "profile" && !user.avatar.isNullOrBlank()) {
                                 AsyncImage(
-                                    user.avatar,
+                                    user.avatar.fastImageUrl(),
                                     "Foto de perfil",
                                     Modifier
                                         .size(24.dp)

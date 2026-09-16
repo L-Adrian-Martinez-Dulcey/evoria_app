@@ -50,6 +50,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.p3.data.model.Event
 import com.example.p3.data.model.User
+import com.example.p3.data.image.fastImageUrl
 import com.example.p3.ui.viewmodel.EventViewModel
 import com.example.p3.ui.viewmodel.UserViewModel
 import com.google.zxing.BarcodeFormat
@@ -122,7 +123,7 @@ private fun EventCard(event: Event, onClick: () -> Unit) {
         ) {
             if (event.coverImage.isNotBlank()) {
                 AsyncImage(
-                    model = event.coverImage,
+                    model = event.coverImage.fastImageUrl(),
                     contentDescription = null,
                     modifier = Modifier
                         .size(130.dp) // even bigger
@@ -220,7 +221,7 @@ fun EventDetailScreen(
             item {
                 if (event.coverImage.isNotBlank()) {
                     AsyncImage(
-                        model = event.coverImage,
+                        model = event.coverImage.fastImageUrl(),
                         contentDescription = "Imagen de ${event.title}",
                         modifier = Modifier
                             .fillMaxWidth()
@@ -755,7 +756,7 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
                 }
                 if (image.isNotBlank()) {
                     AsyncImage(
-                        model = image,
+                        model = image.fastImageUrl(),
                         contentDescription = "Imagen del evento",
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1449,7 +1450,7 @@ private fun ProfileHeader(
             ) {
                 if (avatar.isNotBlank()) {
                     AsyncImage(
-                        model = avatar,
+                        model = avatar.fastImageUrl(),
                         contentDescription = "Foto de perfil",
                         modifier = Modifier
                             .fillMaxSize()
@@ -1604,7 +1605,7 @@ private fun UpcomingEventCard(event: Event, onClick: () -> Unit) {
         ) {
             if (event.coverImage.isNotBlank()) {
                 AsyncImage(
-                    model = event.coverImage,
+                    model = event.coverImage.fastImageUrl(),
                     contentDescription = "Imagen de ${event.title}",
                     modifier = Modifier
                         .size(64.dp)
