@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -35,6 +37,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     )
     private val _uiState = MutableStateFlow(EventUiState())
     val uiState: StateFlow<EventUiState> = _uiState.asStateFlow()
+    private val registrationMutationMutex = Mutex()
 
     init { loadEvents() }
 
@@ -137,32 +140,99 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun register(event: Event, userId: String) = viewModelScope.launch {
-        if (_uiState.value.isLoading) return@launch
-        when {
-            event.creatorId == userId -> fail("No puedes inscribirte a tu propio evento.")
-            event.availableSlots <= 0 -> fail("No hay cupos disponibles.")
-            event.registrations.any { it.userId == userId } -> fail("Ya estás inscrito en este evento.")
-            else -> updateEvent(event.copy(
-                availableSlots = event.availableSlots - 1,
-                registrations = event.registrations + Registration(
-                    id = UUID.randomUUID().toString(), eventId = event.id.orEmpty(), userId = userId,
-                    registrationDate = now(),
-                )
-            ), "Inscripción realizada")
+        val eventId = event.id ?: return@launch
+        registrationMutationMutex.withLock {
+            if (_uiState.value.isLoading) return@withLock
+            mutateRegistration(eventId, "Inscripción realizada") { latest ->
+                when {
+                    latest.creatorId == userId ->
+                        RegistrationMutation.Rejected("No puedes inscribirte a tu propio evento.")
+                    latest.hasEnded() ->
+                        RegistrationMutation.Rejected("No puedes inscribirte a un evento finalizado.")
+                    latest.availableSlots <= 0 ->
+                        RegistrationMutation.Rejected("No hay cupos disponibles.")
+                    latest.registrations.any { it.userId == userId } ->
+                        RegistrationMutation.Rejected("Ya estás inscrito en este evento.")
+                    else ->
+                        RegistrationMutation.Updated(
+                            latest.copy(
+                                availableSlots = latest.availableSlots - 1,
+                                registrations = latest.registrations + Registration(
+                                    id = UUID.randomUUID().toString(),
+                                    eventId = eventId,
+                                    userId = userId,
+                                    registrationDate = now(),
+                                )
+                            )
+                        )
+                }
+            }
         }
     }
 
     fun unregister(event: Event, userId: String) = viewModelScope.launch {
-        if (_uiState.value.isLoading) return@launch
-        val registration = event.registrations.firstOrNull { it.userId == userId }
-            ?: return@launch
-        updateEvent(
-            event.copy(
-                availableSlots = event.availableSlots + 1,
-                registrations = event.registrations.filterNot { it.userId == registration.userId },
-            ),
-            "Inscripción cancelada correctamente.",
+        val eventId = event.id ?: return@launch
+        registrationMutationMutex.withLock {
+            if (_uiState.value.isLoading) return@withLock
+            mutateRegistration(eventId, "Inscripción cancelada correctamente.") { latest ->
+                if (latest.registrations.none { it.userId == userId }) {
+                    RegistrationMutation.Rejected("No estás inscrito en este evento.")
+                } else {
+                    RegistrationMutation.Updated(
+                        latest.copy(
+                            availableSlots = latest.availableSlots + 1,
+                            registrations = latest.registrations.filterNot { it.userId == userId },
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun mutateRegistration(
+        eventId: String,
+        successMessage: String,
+        mutation: (Event) -> RegistrationMutation,
+    ) {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null, message = null)
+        try {
+            val latest = repository.getEvent(eventId)
+            when (val result = mutation(latest)) {
+                is RegistrationMutation.Rejected -> {
+                    replaceEvent(latest)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message,
+                    )
+                }
+                is RegistrationMutation.Updated -> {
+                    val updated = repository.update(result.event)
+                    replaceEvent(updated)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        message = successMessage,
+                    )
+                }
+            }
+        } catch (error: Exception) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "No fue posible actualizar la inscripción: ${error.message}",
+            )
+        }
+    }
+
+    private fun replaceEvent(event: Event) {
+        _uiState.value = _uiState.value.copy(
+            events = _uiState.value.events
+                .filterNot { it.id == event.id }
+                .plus(event),
         )
+    }
+
+    private sealed interface RegistrationMutation {
+        data class Updated(val event: Event) : RegistrationMutation
+        data class Rejected(val message: String) : RegistrationMutation
     }
 
     fun addReview(event: Event, userId: String, rating: Int, comment: String) {
