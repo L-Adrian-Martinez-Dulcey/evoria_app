@@ -4,6 +4,7 @@ package com.example.p3.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -94,7 +95,8 @@ fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, nav
             LazyColumn(
                 modifier = Modifier
                     .padding(padding)
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest),
                 contentPadding = PaddingValues(start = 16.dp, top = 18.dp, end = 16.dp, bottom = 92.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
@@ -1535,7 +1537,9 @@ fun MyEventsScreen(user: User, viewModel: EventViewModel, navController: NavCont
     val selectedEvents = if (tab == 0) createdEvents else registeredEvents
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
         contentPadding = PaddingValues(start = 8.dp, top = 20.dp, end = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -2455,7 +2459,8 @@ fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
                     }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -2489,7 +2494,9 @@ fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(),
                         singleLine = true,
                         shape = RoundedCornerShape(18.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -2672,7 +2679,11 @@ private fun SearchEventCard(event: Event, onClick: () -> Unit) {
                 )
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFDDF2E9),
+                    color = if (event.availableSlots > 0) {
+                        Color(0xFFDDF2E9)
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
                 ) {
                     Text(
                         if (event.availableSlots > 0) {
