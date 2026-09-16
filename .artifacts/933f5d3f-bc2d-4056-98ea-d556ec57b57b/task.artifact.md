@@ -1,4 +1,7 @@
-# Task List - Fix Redirection to RegisterScreen
+# Task List - Documentación Integral EVORIA
 
-- [x] Stabilize `startDestination` in `MainActivity.kt` using `remember`
-- [x] Verify build and navigation flow from Onboarding to Register
+- [ ] Analizar estructura de modelos y repositorios.
+- [ ] Verificar endpoints de APIs (MockAPI y GitHub).
+- [ ] Documentar flujo de Onboarding y Autenticación.
+- [ ] Detallar gestión de imágenes y configuración local.
+- [ ] Actualizar `README.md` con el nuevo diseño visual y contenido verificado.
