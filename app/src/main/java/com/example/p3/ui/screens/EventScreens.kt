@@ -161,6 +161,7 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
     }
     val isCreator = event.creatorId == user.id
     val isRegistered = event.registrations.any { it.userId == user.id }
+    val hasEnded = event.hasEnded()
     var qrBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var qrError by remember { mutableStateOf<String?>(null) }
 
@@ -217,9 +218,9 @@ fun EventDetailScreen(eventId: String, user: User, viewModel: EventViewModel, na
                     Spacer(Modifier.width(8.dp)); OutlinedButton({ confirmDelete = true }) { Icon(Icons.Default.Delete, null); Text(" Eliminar") }
                 } else {
                     Button({ viewModel.register(event, user.id.orEmpty()) }, enabled = !isRegistered && event.availableSlots > 0, modifier = Modifier.fillMaxWidth()) { Text(if (isRegistered) "Ya estás inscrito" else "Inscribirme") }
-                    if (isRegistered && hasFinished(event.date)) OutlinedButton({ showReview = true }, Modifier.fillMaxWidth()) { Text("Calificar evento") }
+                    if (isRegistered && hasEnded) OutlinedButton({ showReview = true }, Modifier.fillMaxWidth()) { Text("Calificar evento") }
                 }
-                if (event.reviews.isNotEmpty()) { Text("Reseñas", style = MaterialTheme.typography.titleMedium); event.reviews.forEach { Text("${it.rating}/5 · ${it.comment}") } }
+                if (hasEnded && event.reviews.isNotEmpty()) { Text("Reseñas", style = MaterialTheme.typography.titleMedium); event.reviews.forEach { Text("${it.rating}/5 · ${it.comment}") } }
             }
         }
     }
@@ -234,6 +235,9 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
     val state by viewModel.uiState.collectAsState(); val existing = state.events.firstOrNull { it.id == eventId }
     val canEdit = existing == null || existing.creatorId == user.id
     val context = LocalContext.current
+    LaunchedEffect(eventId) {
+        if (eventId != null && existing == null) viewModel.loadEvent(eventId)
+    }
     var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }; var description by remember(existing?.id) { mutableStateOf(existing?.description.orEmpty()) }
     var date by remember(existing?.id) { mutableStateOf(existing?.date.orEmpty()) }; var time by remember(existing?.id) { mutableStateOf(existing?.time.orEmpty()) }
     var place by remember(existing?.id) { mutableStateOf(existing?.place.orEmpty()) }; var category by remember(existing?.id) { mutableStateOf(existing?.category.orEmpty()) }
@@ -242,6 +246,18 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
         runCatching { context.contentResolver.takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         image = selected.toString()
     } }
+    if (eventId != null && existing == null && state.error == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    if (eventId != null && existing == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(state.error ?: "No fue posible cargar el evento.")
+        }
+        return
+    }
     if (eventId != null && existing != null && !canEdit) {
         LaunchedEffect(eventId) { navController.popBackStack() }
         return
@@ -267,7 +283,7 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
                 Modifier.fillMaxWidth().aspectRatio(1f),
                 contentScale = ContentScale.Crop,
             )
-            Button(onClick = { viewModel.save(Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.trim(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList())) { navController.popBackStack() } }, modifier = Modifier.fillMaxWidth()) { Text("Guardar") }
+            Button(onClick = { viewModel.save(Event(existing?.id, existing?.creatorId ?: user.id.orEmpty(), title.trim(), description.trim(), date.trim(), time.trim(), place.trim(), category.trim(), slots.toIntOrNull() ?: -1, image.trim(), existing?.createdAt ?: now(), existing?.registrations ?: emptyList(), existing?.reviews ?: emptyList()), user.id.orEmpty()) { navController.popBackStack() } }, modifier = Modifier.fillMaxWidth()) { Text("Guardar") }
         }
     }
 }
@@ -376,8 +392,6 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
 @Composable private fun EventFeedback(error: String?, message: String?, clear: () -> Unit) { if (error != null || message != null) LaunchedEffect(error, message) { /* El estado se visualiza en cada pantalla sin ocultar errores. */ } }
 @Composable private fun ReviewDialog(onDismiss: () -> Unit, save: (Int, String) -> Unit) { var rating by remember { mutableStateOf("") }; var comment by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Calificar evento") }, text = { Column { AppField(rating, { rating = it }, "Puntaje (1-5)", KeyboardType.Number); AppField(comment, { comment = it }, "Comentario", single = false) } }, confirmButton = { TextButton({ save(rating.toIntOrNull() ?: 0, comment) }) { Text("Publicar") } }, dismissButton = { TextButton(onDismiss) { Text("Cancelar") } }) }
 private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
-private fun hasFinished(date: String) = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
-
 private fun generateQrCode(text: String): ImageBitmap? {
     return try {
         val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)
