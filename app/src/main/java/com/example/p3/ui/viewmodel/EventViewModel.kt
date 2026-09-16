@@ -76,53 +76,61 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         userId: String,
         selectedImageUri: Uri? = null,
         onSuccess: () -> Unit,
-    ) = viewModelScope.launch {
-        if (_uiState.value.isLoading) return@launch
+    ) {
+        // El estado debe cambiar antes de iniciar la corrutina. De otro modo dos
+        // pulsaciones rápidas pueden encolar dos POST antes de que la primera
+        // corrutina alcance su comprobación de isLoading.
+        if (_uiState.value.isLoading) return
         if (event.id != null) {
             val currentEvent = _uiState.value.events.firstOrNull { it.id == event.id }
             if (currentEvent == null) {
                 fail("No fue posible verificar el propietario del evento.")
-                return@launch
+                return
             }
             if (currentEvent.creatorId != userId) {
                 fail("Solo el creador puede editar este evento.")
-                return@launch
+                return
             }
         }
         val validation = validate(event)
-        if (validation != null) { _uiState.value = _uiState.value.copy(error = validation); return@launch }
+        if (validation != null) {
+            _uiState.value = _uiState.value.copy(error = validation)
+            return
+        }
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-        try {
-            val saved = if (event.id == null) {
-                val created = repository.create(event.copy(coverImage = ""))
-                val imageUrl = selectedImageUri?.let {
-                    imageRepository.uploadEventImage(it, requireNotNull(created.id))
-                }
-                if (imageUrl != null) {
-                    repository.update(created.copy(coverImage = imageUrl))
+        viewModelScope.launch {
+            try {
+                val saved = if (event.id == null) {
+                    val created = repository.create(event.copy(coverImage = ""))
+                    val imageUrl = selectedImageUri?.let {
+                        imageRepository.uploadEventImage(it, requireNotNull(created.id))
+                    }
+                    if (imageUrl != null) {
+                        repository.update(created.copy(coverImage = imageUrl))
+                    } else {
+                        created
+                    }
                 } else {
-                    created
+                    val imageUrl = selectedImageUri?.let {
+                        imageRepository.uploadEventImage(it, requireNotNull(event.id))
+                    }
+                    repository.update(event.copy(coverImage = imageUrl ?: event.coverImage))
                 }
-            } else {
-                val imageUrl = selectedImageUri?.let {
-                    imageRepository.uploadEventImage(it, requireNotNull(event.id))
+                val currentEvents = _uiState.value.events
+                val updatedEvents = if (event.id == null) {
+                    currentEvents + saved
+                } else {
+                    currentEvents.map { if (it.id == saved.id) saved else it }
                 }
-                repository.update(event.copy(coverImage = imageUrl ?: event.coverImage))
+                _uiState.value = _uiState.value.copy(events = updatedEvents)
+                _uiState.value = _uiState.value.copy(isLoading = false, message = "Evento guardado")
+                onSuccess()
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No fue posible guardar: ${error.message}",
+                )
             }
-            val currentEvents = _uiState.value.events
-            val updatedEvents = if (event.id == null) {
-                currentEvents + saved
-            } else {
-                currentEvents.map { if (it.id == saved.id) saved else it }
-            }
-            _uiState.value = _uiState.value.copy(events = updatedEvents)
-            _uiState.value = _uiState.value.copy(isLoading = false, message = "Evento guardado")
-            onSuccess()
-        } catch (error: Exception) {
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                error = "No fue posible guardar: ${error.message}",
-            )
         }
     }
 
