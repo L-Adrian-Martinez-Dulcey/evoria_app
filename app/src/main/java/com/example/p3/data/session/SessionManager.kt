@@ -15,6 +15,7 @@ class SessionManager(private val context: Context) {
 
     private val userIdKey = stringPreferencesKey("user_id")
     private val onboardingKey = booleanPreferencesKey("onboarding_completed")
+    private val darkModeKey = booleanPreferencesKey("dark_mode")
 
     suspend fun saveUserId(id: String) {
         context.sessionDataStore.edit {
@@ -35,6 +36,17 @@ class SessionManager(private val context: Context) {
         context.sessionDataStore.data.map {
             it[onboardingKey] ?: false
         }
+
+    val isDarkMode: Flow<Boolean> =
+        context.sessionDataStore.data.map {
+            it[darkModeKey] ?: false
+        }
+
+    suspend fun saveDarkMode(enabled: Boolean) {
+        context.sessionDataStore.edit {
+            it[darkModeKey] = enabled
+        }
+    }
 
     suspend fun clear() {
         context.sessionDataStore.edit {

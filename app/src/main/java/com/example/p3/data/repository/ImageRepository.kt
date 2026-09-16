@@ -56,7 +56,7 @@ class ImageRepository(
         val encoded = Base64.encodeToString(optimizedBytes, Base64.NO_WRAP)
         val response = githubApi.uploadFile(
             path = path,
-            authorization = "Bearer $token",
+            authorization = "Bearer ${BuildConfig.GITHUB_TOKEN.trim()}",
             accept = "application/vnd.github+json",
             request = GithubFileRequest(
                 message = "Upload $folder image $fileName",

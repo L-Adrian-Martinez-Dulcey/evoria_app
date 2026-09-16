@@ -43,6 +43,7 @@ fun LoginScreen(navController: NavController, userViewModel: UserViewModel) {
     // Logic states from UserViewModel
     val loginResult by userViewModel.loginResult.collectAsState()
     val loginError by userViewModel.loginError.collectAsState()
+    val isAuthLoading by userViewModel.isAuthLoading.collectAsState()
 
     // Paleta de colores EVORIA
     val navy = Color(0xFF2F4156)
@@ -330,10 +331,9 @@ fun LoginScreen(navController: NavController, userViewModel: UserViewModel) {
                 // Botón: Iniciar sesión
                 Button(
                     onClick = {
-                        if (email.isNotBlank() && password.isNotBlank()) {
-                            userViewModel.loginUser(email, password)
-                        }
+                        userViewModel.loginUser(email, password)
                     },
+                    enabled = !isAuthLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(62.dp)
@@ -352,7 +352,13 @@ fun LoginScreen(navController: NavController, userViewModel: UserViewModel) {
                         pressedElevation = 6.dp
                     )
                 ) {
-                    Row(
+                    if (isAuthLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {

@@ -43,6 +43,9 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError
 
+    private val _isAuthLoading = MutableStateFlow(false)
+    val isAuthLoading: StateFlow<Boolean> = _isAuthLoading
+
     private val _isOnboardingCompleted = MutableStateFlow(false)
     val isOnboardingCompleted = _isOnboardingCompleted.asStateFlow()
 
@@ -53,12 +56,19 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
     fun toggleDarkMode() {
-        _isDarkMode.value = !_isDarkMode.value
+        val enabled = !_isDarkMode.value
+        _isDarkMode.value = enabled
+        viewModelScope.launch {
+            sessionManager.saveDarkMode(enabled)
+        }
     }
 
     init {
         fetchUsers()
         restoreSessionAndOnboarding()
+        viewModelScope.launch {
+            sessionManager.isDarkMode.collectLatest { _isDarkMode.value = it }
+        }
     }
 
     private fun restoreSessionAndOnboarding() = viewModelScope.launch {
@@ -133,7 +143,16 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
             try {
+                if (name.isBlank() || phone.isBlank() || city.isBlank()) {
+                    _error.value = "Completa todos los campos"
+                    return@launch
+                }
+                if (password.length < 8) {
+                    _error.value = "La contraseña debe tener al menos 8 caracteres"
+                    return@launch
+                }
                 if (repository.getUserByEmail(normalizedEmail).isNotEmpty()) {
                     _error.value = "Ya existe una cuenta con ese correo"
                     return@launch
@@ -142,8 +161,8 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                     name = name.trim(),
                     email = normalizedEmail,
                     password = password,
-                    phone = phone,
-                    city = city
+                    phone = phone.trim(),
+                    city = city.trim()
                 )
                 repository.createUser(user)
                 _error.value = null
@@ -177,13 +196,20 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
             _error.value = "Completa correctamente los datos del perfil"
             return
         }
+        val normalizedEmail = user.email.trim().lowercase()
+        if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
+            _error.value = "Ingresa un correo válido"
+            return
+        }
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val userId = requireNotNull(user.id)
                 val normalizedEmail = user.email.trim().lowercase()
-                if (repository.getUserByEmail(normalizedEmail).any { it.id != userId }) {
+                val emailOwner = repository.getUserByEmail(normalizedEmail)
+                    .firstOrNull { it.id != userId }
+                if (emailOwner != null) {
                     _error.value = "Ya existe una cuenta con ese correo"
                     return@launch
                 }
@@ -233,6 +259,7 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
+            _loginError.value = null
             try {
                 val users = repository.getUserByEmail(normalizedEmail)
 
@@ -260,6 +287,11 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
                 _isLoading.value = false
             }
         }
+    }
+
+    fun clearErrors() {
+        _error.value = null
+        _loginError.value = null
     }
 
     fun logout(onComplete: () -> Unit) = viewModelScope.launch {

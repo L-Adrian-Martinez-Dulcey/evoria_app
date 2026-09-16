@@ -103,7 +103,7 @@ API (Retrofit / OkHttp)
 
 ## ⚙️ Configuración Local
 
-Para habilitar la subida de imágenes, el proyecto requiere un token personal de GitHub:
+Para habilitar temporalmente la subida de imágenes durante la demostración, el proyecto requiere un token personal de GitHub:
 
 1.  Crea un archivo `local.properties` en la raíz del proyecto (si no existe).
 2.  Agrega la siguiente línea con tu token (con permisos de `repo` o `contents`):
@@ -111,6 +111,8 @@ Para habilitar la subida de imágenes, el proyecto requiere un token personal de
     github.token=TU_TOKEN_AQUÍ
     ```
 3.  **Seguridad:** El archivo `local.properties` está excluido de Git por defecto. Nunca compartas ni subas tu token real.
+
+> **Importante:** el token se incorpora al APK mediante `BuildConfig`, por lo que esta integración es únicamente para desarrollo/presentación. Revoca inmediatamente cualquier token que haya sido compartido públicamente y no uses un token con permisos superiores a los estrictamente necesarios. Para una versión de producción, la subida debe pasar por un backend y el token nunca debe llegar a la aplicación.
 
 ## 🚀 Ejecución y Compilación
 

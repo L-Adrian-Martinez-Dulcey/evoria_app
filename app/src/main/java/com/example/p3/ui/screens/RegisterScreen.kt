@@ -37,7 +37,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,15 +74,8 @@ fun RegisterScreen(
     var city by remember { mutableStateOf("") }
 
     var localError by remember { mutableStateOf<String?>(null) }
-    var isRegistering by remember { mutableStateOf(false) }
-
     val error by users.error.collectAsState()
-
-    LaunchedEffect(error) {
-        if (error != null) {
-            isRegistering = false
-        }
-    }
+    val isRegistering by users.isAuthLoading.collectAsState()
 
     val navy = Color(0xFF2F4156)
     val teal = Color(0xFF567C8D)
@@ -359,8 +351,6 @@ fun RegisterScreen(
 
                             else -> {
                                 localError = null
-                                isRegistering = true
-
                                 users.registerUser(
                                     name = name.trim(),
                                     email = email.trim(),

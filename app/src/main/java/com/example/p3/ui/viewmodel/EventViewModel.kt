@@ -11,6 +11,7 @@ import com.example.p3.data.model.Registration
 import com.example.p3.data.model.Review
 import com.example.p3.data.repository.EventRepository
 import com.example.p3.data.repository.ImageRepository
+import com.example.p3.data.validation.EventValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,7 +94,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 return
             }
         }
-        val validation = validate(event)
+        val validation = EventValidator.validate(event)
         if (validation != null) {
             _uiState.value = _uiState.value.copy(error = validation)
             return
@@ -325,23 +326,6 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
-    private fun validate(event: Event): String? = when {
-        listOf(event.title, event.description, event.date, event.time, event.place, event.category).any { it.isBlank() } -> "Completa todos los campos obligatorios."
-        event.title.trim().length !in 3..100 -> "El título debe tener entre 3 y 100 caracteres."
-        event.description.trim().length !in 10..2000 -> "La descripción debe tener entre 10 y 2000 caracteres."
-        event.place.trim().length !in 2..200 -> "El lugar debe tener entre 2 y 200 caracteres."
-        event.category.trim().length !in 2..60 -> "La categoría debe tener entre 2 y 60 caracteres."
-        event.availableSlots <= 0 -> "Los cupos deben ser mayores que cero."
-        !isValidDateTime(event.date, event.time) -> "La fecha y hora deben ser válidas y futuras."
-        else -> null
-    }
-    private fun isValidDateTime(date: String, time: String): Boolean = runCatching {
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
-        val value = "$date $time"
-        val position = ParsePosition(0)
-        val selected = format.parse(value, position) ?: return false
-        position.index == value.length && selected.after(Calendar.getInstance().time)
-    }.getOrDefault(false)
     private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
     private fun fail(message: String) { _uiState.value = _uiState.value.copy(error = message) }
 
