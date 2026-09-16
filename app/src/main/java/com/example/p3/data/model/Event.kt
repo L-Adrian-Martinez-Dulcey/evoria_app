@@ -24,7 +24,9 @@ data class Event(
 ) {
     fun hasEnded(now: Date = Calendar.getInstance().time): Boolean = runCatching {
         if (date.isBlank() || time.isBlank()) return false
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply {
+            isLenient = false
+        }
         format.parse("$date $time")?.before(now) == true
     }.getOrDefault(false)
 }
