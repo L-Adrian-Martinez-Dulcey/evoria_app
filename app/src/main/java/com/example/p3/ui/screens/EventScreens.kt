@@ -11,6 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -589,27 +590,186 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
         LaunchedEffect(eventId) { navController.popBackStack() }
         return
     }
-    Scaffold(topBar = { TopAppBar(title = { Text(if (existing == null) "Crear evento" else "Editar evento") }, navigationIcon = { IconButton({ navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) }) { padding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            if (existing == null) "Crear evento" else "Editar evento",
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            if (existing == null) "Comparte una nueva experiencia" else "Actualiza los detalles de tu evento",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton({ navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                    }
+                }
+            )
+        }
+    ) { padding ->
         Column(
             Modifier
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            AppField(title, { title = it }, "Título"); AppField(description, { description = it }, "Descripción", single = false)
-            DateField(date) { date = it }; TimeField(time) { time = it }
-            AppField(place, { place = it }, "Lugar"); CategoryField(category) { category = it }; AppField(slots, { slots = it }, "Cupos disponibles", KeyboardType.Number)
-            OutlinedButton({ imagePicker.launch(arrayOf("image/*")) }, Modifier.fillMaxWidth()) { Text(if (image.isBlank()) "Seleccionar imagen del evento" else "Cambiar imagen del evento") }
-            if (image.isNotBlank()) AsyncImage(
-                image,
-                "Imagen del evento",
-                Modifier.fillMaxWidth().aspectRatio(1f),
-                contentScale = ContentScale.Crop,
-            )
+            state.error?.let {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                ) {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(14.dp),
+                    )
+                }
+            }
+
+            EventFormCard(
+                title = "Información principal",
+                subtitle = "Dale identidad a tu evento",
+            ) {
+                EventFormField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = "Título",
+                    placeholder = "Nombre del evento",
+                )
+                EventFormField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = "Descripción",
+                    placeholder = "Describe la actividad y lo que podrán disfrutar",
+                    singleLine = false,
+                )
+            }
+
+            EventFormCard(
+                title = "Cuándo y dónde",
+                subtitle = "Ayuda a los asistentes a planificar",
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    EventDateButton(
+                        value = date,
+                        onClick = {
+                            val c = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+                            DatePickerDialog(
+                                context,
+                                { _, y, m, d -> date = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d) },
+                                c.get(Calendar.YEAR),
+                                c.get(Calendar.MONTH),
+                                c.get(Calendar.DAY_OF_MONTH)
+                            ).apply { datePicker.minDate = c.timeInMillis }.show()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    EventTimeButton(
+                        value = time,
+                        onClick = {
+                            val c = Calendar.getInstance()
+                            TimePickerDialog(
+                                context,
+                                { _, h, m -> time = String.format(Locale.US, "%02d:%02d", h, m) },
+                                c.get(Calendar.HOUR_OF_DAY),
+                                c.get(Calendar.MINUTE),
+                                true
+                            ).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                EventFormField(
+                    value = place,
+                    onValueChange = { place = it },
+                    label = "Lugar",
+                    placeholder = "Dirección o punto de encuentro",
+                )
+            }
+
+            EventFormCard(
+                title = "Detalles del evento",
+                subtitle = "Organiza la experiencia para tu comunidad",
+            ) {
+                EventCategoryField(value = category, onValueChange = { category = it })
+                EventFormField(
+                    value = slots,
+                    onValueChange = { slots = it },
+                    label = "Cupos disponibles",
+                    placeholder = "Número de asistentes",
+                    keyboard = KeyboardType.Number,
+                )
+            }
+
+            EventFormCard(
+                title = "Imagen de portada",
+                subtitle = "Haz que tu evento destaque",
+            ) {
+                OutlinedButton(
+                    onClick = { imagePicker.launch(arrayOf("image/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF2F4156)
+                    ),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                            listOf(Color(0xFF567C8D), Color(0xFF2F4156))
+                        )
+                    ),
+                ) {
+                    Icon(
+                        if (image.isBlank()) Icons.Default.AddPhotoAlternate else Icons.Default.Edit,
+                        null,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (image.isBlank()) "Seleccionar imagen" else "Cambiar imagen")
+                }
+                if (image.isNotBlank()) {
+                    AsyncImage(
+                        model = image,
+                        contentDescription = "Imagen del evento",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp)
+                            .clip(RoundedCornerShape(18.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color(0xFFF5EFE6),
+                    ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text(
+                                    "Puedes añadir una imagen de portada",
+                                    color = Color(0xFF7A8F9E),
+                                    textAlign = TextAlign.Center,
+                                )
+                        }
+                    }
+                }
+            }
+
             Button(
                 onClick = {
                     viewModel.save(
@@ -618,11 +778,203 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
                     ) { navController.popBackStack() }
                 },
                 enabled = !state.isLoading,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2F4156),
+                    contentColor = Color.White,
+                ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 4.dp,
+                    pressedElevation = 8.dp,
+                ),
             ) {
-                if (state.isLoading) CircularProgressIndicator(strokeWidth = 2.dp) else Text("Guardar")
+                if (state.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(Icons.Default.Save, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (existing == null) "Crear evento" else "Guardar cambios",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun EventFormCard(
+    title: String,
+    subtitle: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.surfaceContainerLow,
+                RoundedCornerShape(20.dp)
+            )
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF2F4156),
+        )
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF7A8F9E),
+        )
+        content()
+    }
+}
+
+@Composable
+private fun EventFormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    keyboard: KeyboardType = KeyboardType.Text,
+    singleLine: Boolean = true,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        placeholder = { Text(placeholder, color = Color(0xFFA0B4C2)) },
+        singleLine = singleLine,
+        minLines = if (singleLine) 1 else 4,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color(0xFF567C8D),
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedLabelColor = Color(0xFF2F4156),
+            focusedLeadingIconColor = Color(0xFF567C8D),
+            unfocusedLeadingIconColor = Color(0xFF7A8F9E),
+        ),
+    )
+}
+
+@Composable
+private fun EventDateButton(
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = Color(0xFF2F4156),
+        ),
+    ) {
+        Text(
+            if (value.isBlank()) "Fecha" else value,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun EventTimeButton(
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = Color(0xFF2F4156),
+        ),
+    ) {
+        Text(
+            if (value.isBlank()) "Hora" else value,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun EventCategoryField(
+    value: String,
+    onValueChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf("Arte", "Deporte", "Tecnología", "Música", "Gastronomía", "Educación", "Otra")
+    val isOther = value.isNotBlank() && !options.contains(value)
+    var showOtherField by remember { mutableStateOf(isOther) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = if (showOtherField) "Otra" else value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Categoría") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF567C8D),
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedLabelColor = Color(0xFF2F4156),
+                focusedLeadingIconColor = Color(0xFF567C8D),
+            ),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        if (option == "Otra") {
+                            showOtherField = true
+                            onValueChange("")
+                        } else {
+                            showOtherField = false
+                            onValueChange(option)
+                        }
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+    if (showOtherField) {
+        EventFormField(
+            value = value,
+            onValueChange = onValueChange,
+            label = "Escribe la categoría personalizada",
+            placeholder = "Categoría",
+        )
     }
 }
 
@@ -1127,11 +1479,6 @@ private fun ProfileHeader(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF2F4156)
-        )
-        Text(
-            text = user.email,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
