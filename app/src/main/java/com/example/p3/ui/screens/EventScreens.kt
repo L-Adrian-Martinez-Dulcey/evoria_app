@@ -2418,27 +2418,26 @@ private fun generateQrCode(text: String): ImageBitmap? {
 @Composable
 fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
-    
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf("") }
-    
     val categories = listOf("Arte", "Deporte", "Tecnología", "Música", "Gastronomía", "Educación")
-    
-    // Filtrado combinado reactivo
     val filteredEvents = state.events.filter { event ->
-        val matchesName = event.title.contains(searchQuery, ignoreCase = true) || 
-                          event.description.contains(searchQuery, ignoreCase = true)
-        val matchesCategory = selectedCategory.isBlank() || event.category.equals(selectedCategory, ignoreCase = true)
+        val matchesName = event.title.contains(searchQuery, ignoreCase = true) ||
+            event.description.contains(searchQuery, ignoreCase = true) ||
+            event.place.contains(searchQuery, ignoreCase = true)
+        val matchesCategory = selectedCategory.isBlank() ||
+            event.category.equals(selectedCategory, ignoreCase = true)
         val matchesDate = selectedDate.isBlank() || event.date == selectedDate
-        
         matchesName && matchesCategory && matchesDate
-    }
+    }.filterNot { it.hasEnded() }
+        .sortedWith(compareBy<Event> { it.date }.thenBy { it.time })
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Buscar Eventos") },
+                title = { Text("Explorar eventos", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -2451,104 +2450,243 @@ fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
                             selectedCategory = ""
                             selectedDate = ""
                         }) {
-                            Text("Limpiar", color = MaterialTheme.colorScheme.primary)
+                            Text("Limpiar", color = Color(0xFF567C8D))
                         }
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Campo de búsqueda por Nombre/Texto
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Buscar por nombre") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Selector de Fecha
-                val context = LocalContext.current
-                OutlinedButton(
-                    onClick = {
-                        val c = Calendar.getInstance()
-                        DatePickerDialog(context, { _, y, m, d ->
-                            selectedDate = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)
-                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = if (selectedDate.isBlank()) "Fecha" else selectedDate,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        "Encuentra tu próximo plan",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF244B68),
+                    )
+                    Text(
+                        "Explora eventos próximos y descubre nuevas experiencias.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Buscar por nombre, lugar o descripción") },
+                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, "Borrar búsqueda")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF567C8D),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        ),
                     )
                 }
+            }
 
-                // Selector de Categoría (Menú desplegable simple)
-                var catExpanded by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedButton(
-                        onClick = { catExpanded = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (selectedCategory.isBlank()) "Categoría" else selectedCategory,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AssistChip(
+                        onClick = {
+                            val calendar = Calendar.getInstance()
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    selectedDate = String.format(
+                                        Locale.US,
+                                        "%04d-%02d-%02d",
+                                        year,
+                                        month + 1,
+                                        day,
+                                    )
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH),
+                            ).show()
+                        },
+                        label = {
+                            Text(if (selectedDate.isBlank()) "Fecha" else selectedDate)
+                        },
+                        leadingIcon = { Icon(Icons.Default.CalendarToday, null, Modifier.size(18.dp)) },
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    categories.forEach { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = {
+                                selectedCategory = if (selectedCategory == category) "" else category
+                            },
+                            label = { Text(category) },
+                            leadingIcon = {
+                                if (selectedCategory == category) {
+                                    Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                                }
+                            },
+                            shape = RoundedCornerShape(14.dp),
                         )
                     }
-                    DropdownMenu(expanded = catExpanded, onDismissRequest = { catExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Todas") },
-                            onClick = { selectedCategory = ""; catExpanded = false }
-                        )
-                        categories.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat) },
-                                onClick = { selectedCategory = cat; catExpanded = false }
+                }
+            }
+
+            item {
+                Text(
+                    "${filteredEvents.size} evento${if (filteredEvents.size == 1) "" else "s"} disponible${if (filteredEvents.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF244B68),
+                )
+            }
+
+            if (state.isLoading && state.events.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF244B68))
+                    }
+                }
+            } else if (filteredEvents.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.EventBusy,
+                                contentDescription = null,
+                                modifier = Modifier.size(44.dp),
+                                tint = Color(0xFF567C8D),
+                            )
+                            Text(
+                                "No encontramos eventos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "Prueba con otra búsqueda o elimina alguno de los filtros.",
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Resultados
-            if (filteredEvents.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No se encontraron eventos con los filtros seleccionados.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    itemsIndexed(filteredEvents, key = { index, event -> event.id ?: "search-$index" }) { _, event ->
-                        EventCard(event) {
-                            event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
-                        }
+                itemsIndexed(
+                    filteredEvents,
+                    key = { index, event -> event.id ?: "search-$index" },
+                ) { _, event ->
+                    SearchEventCard(event) {
+                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchEventCard(event: Event, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (event.coverImage.isNotBlank()) {
+                AsyncImage(
+                    model = event.coverImage.fastImageUrl(),
+                    contentDescription = event.title,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFDDEAF0)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Event, null, tint = Color(0xFF406370))
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    event.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF244B68),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                EventInfoLine(
+                    Icons.Default.CalendarToday,
+                    "${event.date} · ${event.time.ifBlank { "Hora no definida" }}",
+                )
+                EventInfoLine(
+                    Icons.Default.LocationOn,
+                    event.place.ifBlank { "Lugar por confirmar" },
+                )
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFDDF2E9),
+                ) {
+                    Text(
+                        if (event.availableSlots > 0) {
+                            "${event.availableSlots} cupos disponibles"
+                        } else {
+                            "Sin cupos disponibles"
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (event.availableSlots > 0) Color(0xFF27705D) else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF567C8D))
         }
     }
 }
