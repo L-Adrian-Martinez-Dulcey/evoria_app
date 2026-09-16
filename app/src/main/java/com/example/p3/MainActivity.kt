@@ -126,12 +126,13 @@ private fun EvoriaApp(users: UserViewModel) {
                 listOf(navArgument("eventId") { type = NavType.StringType })
             ) { it ->
                 user?.let { current ->
+                    val allUsers by users.users.collectAsState()
                     EventDetailScreen(
-                        Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
-                        current,
-                        events,
-                        users.users.collectAsState().value,
-                        navController,
+                        eventId = Uri.decode(requireNotNull(it.arguments?.getString("eventId"))),
+                        user = current,
+                        viewModel = events,
+                        users = allUsers,
+                        navController = navController,
                     )
                 }
             }
