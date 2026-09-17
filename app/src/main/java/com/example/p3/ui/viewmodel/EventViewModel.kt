@@ -11,6 +11,7 @@ import com.example.p3.data.model.Registration
 import com.example.p3.data.model.Review
 import com.example.p3.data.repository.EventRepository
 import com.example.p3.data.repository.ImageRepository
+import com.example.p3.data.validation.EventValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
+import java.text.ParsePosition
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
@@ -76,64 +78,82 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         userId: String,
         selectedImageUri: Uri? = null,
         onSuccess: () -> Unit,
-    ) = viewModelScope.launch {
-        if (_uiState.value.isLoading) return@launch
+    ) {
+        // El estado debe cambiar antes de iniciar la corrutina. De otro modo dos
+        // pulsaciones rápidas pueden encolar dos POST antes de que la primera
+        // corrutina alcance su comprobación de isLoading.
+        if (_uiState.value.isLoading) return
         if (event.id != null) {
             val currentEvent = _uiState.value.events.firstOrNull { it.id == event.id }
             if (currentEvent == null) {
                 fail("No fue posible verificar el propietario del evento.")
-                return@launch
+                return
             }
             if (currentEvent.creatorId != userId) {
                 fail("Solo el creador puede editar este evento.")
-                return@launch
+                return
             }
         }
-        val validation = validate(event)
-        if (validation != null) { _uiState.value = _uiState.value.copy(error = validation); return@launch }
+        val validation = EventValidator.validate(event)
+        if (validation != null) {
+            _uiState.value = _uiState.value.copy(error = validation)
+            return
+        }
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-        try {
-            val saved = if (event.id == null) {
-                val created = repository.create(event.copy(coverImage = ""))
-                val imageUrl = selectedImageUri?.let {
-                    imageRepository.uploadEventImage(it, requireNotNull(created.id))
-                }
-                if (imageUrl != null) {
-                    repository.update(created.copy(coverImage = imageUrl))
+        viewModelScope.launch {
+            try {
+                val saved = if (event.id == null) {
+                    val created = repository.create(event.copy(coverImage = ""))
+                    val imageUrl = selectedImageUri?.let {
+                        imageRepository.uploadEventImage(it, requireNotNull(created.id))
+                    }
+                    if (imageUrl != null) {
+                        repository.update(created.copy(coverImage = imageUrl))
+                    } else {
+                        created
+                    }
                 } else {
-                    created
+                    val imageUrl = selectedImageUri?.let {
+                        imageRepository.uploadEventImage(it, requireNotNull(event.id))
+                    }
+                    repository.update(event.copy(coverImage = imageUrl ?: event.coverImage))
                 }
-            } else {
-                val imageUrl = selectedImageUri?.let {
-                    imageRepository.uploadEventImage(it, requireNotNull(event.id))
+                val currentEvents = _uiState.value.events
+                val updatedEvents = if (event.id == null) {
+                    currentEvents + saved
+                } else {
+                    currentEvents.map { if (it.id == saved.id) saved else it }
                 }
-                repository.update(event.copy(coverImage = imageUrl ?: event.coverImage))
+                _uiState.value = _uiState.value.copy(events = updatedEvents)
+                _uiState.value = _uiState.value.copy(isLoading = false, message = "Evento guardado")
+                onSuccess()
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "No fue posible guardar: ${error.message}",
+                )
             }
-            val currentEvents = _uiState.value.events
-            val updatedEvents = if (event.id == null) {
-                currentEvents + saved
-            } else {
-                currentEvents.map { if (it.id == saved.id) saved else it }
-            }
-            _uiState.value = _uiState.value.copy(events = updatedEvents)
-            _uiState.value = _uiState.value.copy(isLoading = false, message = "Evento guardado")
-            onSuccess()
-        } catch (error: Exception) {
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                error = "No fue posible guardar: ${error.message}",
-            )
         }
     }
 
-    fun delete(event: Event, onSuccess: () -> Unit) = viewModelScope.launch {
+    fun delete(event: Event, userId: String, onSuccess: () -> Unit) = viewModelScope.launch {
         val id = requireNotNull(event.id)
+        if (event.creatorId != userId) {
+            fail("Solo el creador puede eliminar este evento.")
+            return@launch
+        }
+        if (_uiState.value.isLoading) return@launch
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         _uiState.value = _uiState.value.copy(events = _uiState.value.events - event, message = "Evento eliminado")
         runCatching { repository.delete(id) }
-            .onSuccess { onSuccess() }
+            .onSuccess {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                onSuccess()
+            }
             .onFailure {
                 _uiState.value = _uiState.value.copy(
                     events = _uiState.value.events + event,
+                    isLoading = false,
                     error = "No fue posible eliminar: ${it.message}",
                 )
             }
@@ -236,10 +256,46 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addReview(event: Event, userId: String, rating: Int, comment: String) {
-        if (!event.hasEnded()) return fail("Solo puedes calificar eventos finalizados.")
-        if (rating !in 1..5 || comment.isBlank()) return fail("Indica una calificación de 1 a 5 y un comentario.")
-        if (event.reviews.any { it.userId == userId }) return fail("Ya calificaste este evento.")
-        updateEvent(event.copy(reviews = event.reviews + Review(UUID.randomUUID().toString(), event.id.orEmpty(), userId, rating, comment.trim())), "Reseña publicada")
+        val eventId = event.id ?: return fail("No fue posible identificar el evento.")
+        viewModelScope.launch {
+            if (_uiState.value.isLoading) return@launch
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                val latest = repository.getEvent(eventId)
+                when {
+                    !latest.hasEnded() -> fail("Solo puedes calificar eventos finalizados.")
+                    latest.registrations.none { it.userId == userId } ->
+                        fail("Solo los asistentes inscritos pueden calificar el evento.")
+                    rating !in 1..5 || comment.trim().isBlank() ->
+                        fail("Indica una calificación de 1 a 5 y un comentario.")
+                    comment.trim().length > 500 ->
+                        fail("El comentario no puede superar 500 caracteres.")
+                    latest.reviews.any { it.userId == userId } ->
+                        fail("Ya calificaste este evento.")
+                    else -> {
+                        val updated = repository.update(
+                            latest.copy(
+                                reviews = latest.reviews + Review(
+                                    UUID.randomUUID().toString(),
+                                    eventId,
+                                    userId,
+                                    rating,
+                                    comment.trim(),
+                                ),
+                            ),
+                        )
+                        replaceEvent(updated)
+                        _uiState.value = _uiState.value.copy(message = "Reseña publicada")
+                    }
+                }
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = "No fue posible publicar la reseña: ${error.message}",
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
     }
 
     fun clearMessage() { _uiState.value = _uiState.value.copy(error = null, message = null) }
@@ -270,18 +326,6 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
-    private fun validate(event: Event): String? = when {
-        listOf(event.title, event.description, event.date, event.time, event.place, event.category).any { it.isBlank() } -> "Completa todos los campos obligatorios."
-        event.availableSlots < 0 -> "Los cupos no pueden ser negativos."
-        !isValidFutureDate(event.date) -> "La fecha debe ser desde mañana y tener formato AAAA-MM-DD."
-        else -> null
-    }
-    private fun isValidFutureDate(value: String): Boolean = runCatching {
-        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-        val selected = format.parse(value) ?: return false
-        val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
-        !selected.before(tomorrow)
-    }.getOrDefault(false)
     private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
     private fun fail(message: String) { _uiState.value = _uiState.value.copy(error = message) }
 

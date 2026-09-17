@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.p3.data.image.fastImageUrl
 import com.example.p3.ui.viewmodel.UserViewModel
 
 @Composable
@@ -50,7 +51,7 @@ fun UserListScreen(
                         ListItem(
                             leadingContent = {
                                 AsyncImage(
-                                    model = user.avatar,
+                                    model = user.avatar.fastImageUrl(),
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(40.dp)

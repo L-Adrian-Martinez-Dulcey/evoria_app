@@ -34,6 +34,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,13 +78,18 @@ fun RegisterScreen(
     var city by remember { mutableStateOf("") }
 
     var localError by remember { mutableStateOf<String?>(null) }
-    var isRegistering by remember { mutableStateOf(false) }
+    var registrationCompleted by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val error by users.authError.collectAsState()
+    val isRegistering by users.isAuthLoading.collectAsState()
 
-    val error by users.error.collectAsState()
-
-    LaunchedEffect(error) {
-        if (error != null) {
-            isRegistering = false
+    LaunchedEffect(registrationCompleted) {
+        if (registrationCompleted) {
+            snackbarHostState.showSnackbar("Usuario creado correctamente")
+            delay(900)
+            navController.navigate("login") {
+                popUpTo("register") { inclusive = true }
+            }
         }
     }
 
@@ -353,14 +361,12 @@ fun RegisterScreen(
                                 localError = "Ingresa un correo válido"
                             }
 
-                            password.length < 6 -> {
-                                localError = "La contraseña debe tener al menos 6 caracteres"
+                            password.length < 8 -> {
+                                localError = "La contraseña debe tener al menos 8 caracteres"
                             }
 
                             else -> {
                                 localError = null
-                                isRegistering = true
-
                                 users.registerUser(
                                     name = name.trim(),
                                     email = email.trim(),
@@ -368,11 +374,7 @@ fun RegisterScreen(
                                     phone = phone.trim(),
                                     city = city.trim()
                                 ) {
-                                    navController.navigate("login") {
-                                        popUpTo("register") {
-                                            inclusive = true
-                                        }
-                                    }
+                                    registrationCompleted = true
                                 }
                             }
                         }
@@ -448,6 +450,13 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 20.dp)
+        )
     }
 }
 

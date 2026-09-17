@@ -4,6 +4,7 @@ package com.example.p3.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,10 +12,13 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -50,6 +54,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.p3.data.model.Event
 import com.example.p3.data.model.User
+import com.example.p3.data.image.fastImageUrl
 import com.example.p3.ui.viewmodel.EventViewModel
 import com.example.p3.ui.viewmodel.UserViewModel
 import com.google.zxing.BarcodeFormat
@@ -64,40 +69,256 @@ import java.util.Locale
 fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
     val isDarkMode by userViewModel.isDarkMode.collectAsState()
-    EventFeedback(state.error, state.message) { viewModel.clearMessage() }
+    val currentUser by userViewModel.currentUser.collectAsState()
+    val feedbackHost = remember { SnackbarHostState() }
+    val upcomingEvents = state.events
+        .filter { !it.hasEnded() }
+        .sortedWith(compareBy<Event> { it.date }.thenBy { it.time })
+    val featuredEvent = upcomingEvents.firstOrNull()
+    val popularEvents = upcomingEvents
+        .sortedWith(
+            compareByDescending<Event> { it.registrations.size }
+                .thenByDescending { event ->
+                    event.reviews.map { it.rating }.average().takeIf { !it.isNaN() } ?: 0.0
+                }
+        )
+        .take(5)
+    EventFeedback(state.error, state.message, feedbackHost) { viewModel.clearMessage() }
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Evoria") },
-                actions = {
-                    IconButton(onClick = { navController.navigate("event_search") }) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar eventos"
-                        )
-                    }
-                    IconButton(onClick = { userViewModel.toggleDarkMode() }) {
-                        Icon(
-                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
-                            contentDescription = "Cambiar modo de tema"
-                        )
+        snackbarHost = { SnackbarHost(feedbackHost) },
+    ) { padding ->
+        if (state.isLoading && state.events.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                contentPadding = PaddingValues(start = 16.dp, top = 18.dp, end = 16.dp, bottom = 92.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column {
+                            Text(
+                                "EVORIA",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp,
+                                color = Color(0xFF244B68),
+                            )
+                            Text(
+                                "Hola, ${currentUser?.name?.substringBefore(" ") ?: "organizador"}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Row {
+                            IconButton(onClick = { userViewModel.toggleDarkMode() }) {
+                                Icon(
+                                    if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                                    contentDescription = "Cambiar modo de tema",
+                                )
+                            }
+                            IconButton(onClick = { navController.navigate("profile") }) {
+                                Icon(Icons.Default.NotificationsNone, "Notificaciones")
+                            }
+                        }
                     }
                 }
-            )
-        },
-        floatingActionButton = { FloatingActionButton(onClick = { navController.navigate("event_form") }) { Icon(Icons.Default.Add, "Crear evento") } }
-    ) { padding ->
-        when {
-            state.isLoading && state.events.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            state.events.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("No hay eventos disponibles") }
-            else -> LazyColumn(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                itemsIndexed(state.events, key = { index, event -> event.id ?: "event-$index" }) { _, event ->
-                    EventCard(event) {
-                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
+
+                item {
+                    Text("Explora categorías", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        listOf("Música", "Tecnología", "Gastronomía", "Arte", "Deporte").forEach { category ->
+                            AssistChip(
+                                onClick = { navController.navigate("event_search") },
+                                label = { Text(category) },
+                                leadingIcon = { Icon(Icons.Default.Category, null, Modifier.size(18.dp)) },
+                                shape = RoundedCornerShape(14.dp),
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Text("Evento destacado", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    if (featuredEvent == null) {
+                        EmptyHomeCard("Aún no hay eventos próximos para mostrar.")
+                    } else {
+                        FeaturedEventCard(featuredEvent) {
+                            featuredEvent.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Eventos populares", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (popularEvents.isEmpty()) {
+                            EmptyHomeCard("Cuando existan eventos, aparecerán aquí.")
+                        } else {
+                            popularEvents.forEach { event ->
+                                HomeEventRow(event) {
+                                    event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FeaturedEventCard(event: Event, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF183A59)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp),
+        ) {
+            if (event.coverImage.isNotBlank()) {
+                AsyncImage(
+                    model = event.coverImage.fastImageUrl(),
+                    contentDescription = event.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.62f,
+                )
+            }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF102B43).copy(alpha = 0.55f))
+                    .padding(18.dp),
+                contentAlignment = Alignment.BottomStart,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(
+                        "RECOMENDADO PARA TI",
+                        color = Color(0xFFB9D9E5),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                    )
+                    Text(
+                        event.title,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "${event.date} · ${event.place}",
+                        color = Color.White.copy(alpha = 0.88f),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeEventRow(event: Event, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (event.coverImage.isNotBlank()) {
+                AsyncImage(
+                    model = event.coverImage.fastImageUrl(),
+                    contentDescription = event.title,
+                    modifier = Modifier
+                        .size(width = 92.dp, height = 78.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(width = 92.dp, height = 78.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFDDEAF0)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Event, null, tint = Color(0xFF406370))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    event.title,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${event.date} · ${event.time}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    event.place,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF567C8D),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun EmptyHomeCard(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Text(
+            message,
+            modifier = Modifier.padding(18.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -122,7 +343,7 @@ private fun EventCard(event: Event, onClick: () -> Unit) {
         ) {
             if (event.coverImage.isNotBlank()) {
                 AsyncImage(
-                    model = event.coverImage,
+                    model = event.coverImage.fastImageUrl(),
                     contentDescription = null,
                     modifier = Modifier
                         .size(130.dp) // even bigger
@@ -178,7 +399,8 @@ fun EventDetailScreen(
     }
     val isCreator = event.creatorId == user.id
     val isRegistered = event.registrations.any { it.userId == user.id }
-    val creatorName = users.firstOrNull { it.id == event.creatorId }?.name
+    val creator = users.firstOrNull { it.id == event.creatorId }
+    val creatorName = creator?.name
         ?: if (event.creatorId == user.id) user.name else "Organizador de EVORIA"
     val averageRating = event.reviews
         .map { it.rating }
@@ -220,20 +442,20 @@ fun EventDetailScreen(
             item {
                 if (event.coverImage.isNotBlank()) {
                     AsyncImage(
-                        model = event.coverImage,
+                        model = event.coverImage.fastImageUrl(),
                         contentDescription = "Imagen de ${event.title}",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(230.dp)
-                            .clip(RoundedCornerShape(24.dp)),
+                            .height(250.dp)
+                            .clip(RoundedCornerShape(26.dp)),
                         contentScale = ContentScale.Crop,
                     )
                 } else {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(230.dp),
-                        shape = RoundedCornerShape(24.dp),
+                            .height(250.dp),
+                        shape = RoundedCornerShape(26.dp),
                         color = Color(0xFFF5EFE6),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -249,38 +471,123 @@ fun EventDetailScreen(
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        event.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2F4156),
-                    )
-                    Text(
-                        "Organizado por $creatorName",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    averageRating?.let { rating ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("★", color = Color(0xFFB7832F), fontSize = 20.sp)
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                String.format(Locale.US, "%.1f", rating),
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2F4156),
-                            )
-                            Text(
-                                " · ${event.reviews.size} reseña${if (event.reviews.size == 1) "" else "s"}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(26.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            event.title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2F4156),
+                        )
+                        EventInfoLine(
+                            Icons.Default.CalendarMonth,
+                            "${event.date} · ${event.time.ifBlank { "Hora no definida" }}",
+                        )
+                        EventInfoLine(
+                            Icons.Default.LocationOn,
+                            event.place.ifBlank { "Lugar por confirmar" },
+                        )
+                        if (event.category.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFFDDEAF0),
+                            ) {
+                                Text(
+                                    event.category,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color(0xFF406370),
+                                )
+                            }
+                        }
+                        averageRating?.let { rating ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("★", color = Color(0xFFB7832F), fontSize = 20.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    String.format(Locale.US, "%.1f", rating),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2F4156),
+                                )
+                                Text(
+                                    " · ${event.reviews.size} reseña${if (event.reviews.size == 1) "" else "s"}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
             }
 
             item {
-                EventInfoGrid(event)
+                EventDetailSection(
+                    title = "Organizador",
+                    icon = Icons.Default.Person,
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                event.creatorId.takeIf { it.isNotBlank() }?.let {
+                                    navController.navigate("public_profile/${Uri.encode(it)}")
+                                }
+                            },
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (!creator?.avatar.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = creator?.avatar?.fastImageUrl(),
+                                    contentDescription = "Foto de $creatorName",
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Surface(
+                                    modifier = Modifier.size(54.dp),
+                                    shape = CircleShape,
+                                    color = Color(0xFFDDEAF0),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            creatorName.take(1).uppercase(),
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF406370),
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(creatorName, fontWeight = FontWeight.Bold)
+                                Text(
+                                    creator?.email ?: "Ver información del organizador",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = "Ver perfil del organizador",
+                                tint = Color(0xFF567C8D),
+                            )
+                        }
+                    }
+                }
             }
 
             item {
@@ -294,6 +601,68 @@ fun EventDetailScreen(
                         lineHeight = 24.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                }
+            }
+
+            if (isCreator) {
+                item {
+                    EventDetailSection(
+                        title = "Asistentes (${event.registrations.size})",
+                        icon = Icons.Default.Group,
+                    ) {
+                        if (event.registrations.isEmpty()) {
+                            Text(
+                                "Todavía no hay usuarios inscritos.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                event.registrations.forEach { registration ->
+                                    val attendee = users.firstOrNull { it.id == registration.userId }
+                                    val attendeeName = attendee?.name?.trim().orEmpty()
+                                    ListItem(
+                                        leadingContent = {
+                                            if (!attendee?.avatar.isNullOrBlank()) {
+                                                AsyncImage(
+                                                    model = attendee?.avatar,
+                                                    contentDescription = "Foto de $attendeeName",
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .clip(CircleShape),
+                                                    contentScale = ContentScale.Crop,
+                                                )
+                                            } else {
+                                                Surface(
+                                                    modifier = Modifier.size(40.dp),
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = attendeeName
+                                                                .trim()
+                                                                .take(1)
+                                                                .uppercase()
+                                                                .ifBlank { "U" },
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        headlineContent = {
+                                            Text(attendee?.name ?: "Usuario no disponible")
+                                        },
+                                        supportingContent = {
+                                            Text(attendee?.email ?: "Inscripción registrada")
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -436,7 +805,7 @@ fun EventDetailScreen(
             }
         }
     }
-    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("¿Eliminar evento?") }, text = { Text("Esta acción no se puede deshacer.") }, confirmButton = { TextButton({ viewModel.delete(event) { navController.popBackStack() } }) { Text("Eliminar") } }, dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancelar") } })
+    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("¿Eliminar evento?") }, text = { Text("Esta acción no se puede deshacer.") }, confirmButton = { TextButton({ viewModel.delete(event, user.id.orEmpty()) { navController.popBackStack() } }) { Text("Eliminar") } }, dismissButton = { TextButton({ confirmDelete = false }) { Text("Cancelar") } })
     if (confirmUnregister) {
         AlertDialog(
             onDismissRequest = { confirmUnregister = false },
@@ -462,6 +831,27 @@ fun EventDetailScreen(
 }
 
 @Composable private fun DetailLine(label: String, value: String) { Text("$label: $value") }
+
+@Composable
+private fun EventInfoLine(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = Color(0xFF567C8D),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
 @Composable
 private fun EventInfoGrid(event: Event) {
@@ -500,6 +890,95 @@ private fun EventInfoGrid(event: Event) {
             label = "Cupos disponibles",
             value = event.availableSlots.toString(),
         )
+    }
+}
+
+@Composable
+fun PublicProfileScreen(profile: User?, navController: NavController) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Perfil del organizador") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        if (profile == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("No fue posible encontrar este perfil.")
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                if (!profile.avatar.isNullOrBlank()) {
+                    AsyncImage(
+                        model = profile.avatar.fastImageUrl(),
+                        contentDescription = "Foto de ${profile.name}",
+                        modifier = Modifier
+                            .size(104.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier.size(104.dp),
+                        shape = CircleShape,
+                        color = Color(0xFFDDEAF0),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                profile.name.take(1).uppercase().ifBlank { "U" },
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF406370),
+                            )
+                        }
+                    }
+                }
+                Text(
+                    profile.name.ifBlank { "Organizador de EVORIA" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF244B68),
+                    textAlign = TextAlign.Center,
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        if (profile.email.isNotBlank()) {
+                            EventInfoLine(Icons.Default.Email, profile.email)
+                        }
+                        if (profile.phone.isNotBlank()) {
+                            EventInfoLine(Icons.Default.Phone, profile.phone)
+                        }
+                        if (profile.city.isNotBlank()) {
+                            EventInfoLine(Icons.Default.LocationOn, profile.city)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -755,7 +1234,7 @@ fun EventFormScreen(eventId: String?, user: User, viewModel: EventViewModel, nav
                 }
                 if (image.isNotBlank()) {
                     AsyncImage(
-                        model = image,
+                        model = image.fastImageUrl(),
                         contentDescription = "Imagen del evento",
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1049,9 +1528,239 @@ private fun EventCategoryField(
 
 @Composable
 fun MyEventsScreen(user: User, viewModel: EventViewModel, navController: NavController) {
-    val events by viewModel.uiState.collectAsState(); var tab by remember { mutableStateOf(0) }
-    val list = if (tab == 0) events.events.filter { it.creatorId == user.id } else events.events.filter { event -> event.registrations.any { it.userId == user.id } }
-    Column { TabRow(tab) { listOf("Creados", "Inscritos").forEachIndexed { index, text -> Tab(selected = tab == index, onClick = { tab = index }, text = { Text(text) }) } }; LazyColumn(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { itemsIndexed(list, key = { index, event -> event.id ?: "my-event-$index" }) { _, event -> EventCard(event) { event.id?.let { navController.navigate("event_detail/$it") } } } } }
+    val state by viewModel.uiState.collectAsState()
+    var tab by remember { mutableStateOf(0) }
+    val createdEvents = state.events.filter { it.creatorId == user.id }
+    val registeredEvents = state.events.filter { event ->
+        event.registrations.any { it.userId == user.id }
+    }
+    val selectedEvents = if (tab == 0) createdEvents else registeredEvents
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+        contentPadding = PaddingValues(start = 8.dp, top = 20.dp, end = 8.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Text(
+                "Mis eventos",
+                modifier = Modifier.padding(horizontal = 2.dp),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF244B68),
+            )
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                        RoundedCornerShape(18.dp),
+                    )
+                    .padding(4.dp),
+            ) {
+                listOf("Creados", "Participando").forEachIndexed { index, label ->
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { tab = index },
+                        shape = RoundedCornerShape(15.dp),
+                        color = if (tab == index) Color(0xFF244B68) else Color.Transparent,
+                    ) {
+                        Text(
+                            label,
+                            modifier = Modifier.padding(vertical = 13.dp),
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (tab == index) Color.White else Color(0xFF244B68),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (state.isLoading && state.events.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF244B68))
+                }
+            }
+        } else if (selectedEvents.isEmpty()) {
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            if (tab == 0) Icons.Default.EventAvailable else Icons.Default.EventBusy,
+                            contentDescription = null,
+                            modifier = Modifier.size(42.dp),
+                            tint = Color(0xFF567C8D),
+                        )
+                        Text(
+                            if (tab == 0) "Todavía no has creado eventos"
+                            else "Todavía no tienes inscripciones",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            if (tab == 0) {
+                                "Crea tu primer evento desde el botón central."
+                            } else {
+                                "Explora eventos y reserva tu lugar en los que te interesen."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        } else {
+            itemsIndexed(
+                selectedEvents,
+                key = { index, event -> event.id ?: "my-event-$index" },
+            ) { _, event ->
+                MyEventCard(event, tab == 0) {
+                    event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MyEventCard(
+    event: Event,
+    isCreated: Boolean,
+    onClick: () -> Unit,
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (event.coverImage.isNotBlank()) {
+                AsyncImage(
+                    model = event.coverImage.fastImageUrl(),
+                    contentDescription = event.title,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFDDEAF0)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Event, null, tint = Color(0xFF406370))
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    event.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF244B68),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFF567C8D),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "${event.date} · ${event.time}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFF567C8D),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        event.place.ifBlank { "Lugar por confirmar" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (event.hasEnded()) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        Color(0xFFDDF2E9)
+                    },
+                ) {
+                    Text(
+                        when {
+                            event.hasEnded() -> "Finalizado"
+                            isCreated -> "Publicado"
+                            else -> "Participando"
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (event.hasEnded()) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            Color(0xFF27705D)
+                        },
+                    )
+                }
+            }
+            Icon(
+                Icons.Default.MoreVert,
+                contentDescription = "Ver opciones",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
@@ -1059,7 +1768,7 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
     val context = LocalContext.current
     val eventViewModel: EventViewModel = viewModel()
     val eventState by eventViewModel.uiState.collectAsState()
-    val profileError by userViewModel.error.collectAsState()
+    val profileError by userViewModel.profileError.collectAsState()
     val isLoading by userViewModel.isLoading.collectAsState()
     var dataExpanded by remember(user.id) { mutableStateOf(false) }
     var upcomingExpanded by remember(user.id) { mutableStateOf(false) }
@@ -1098,7 +1807,9 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
 
     val upcomingEvents = eventState.events
         .filter { event ->
-            event.registrations.any { it.userId == user.id } && isWithinNextSevenDays(event.date)
+            event.registrations.any { it.userId == user.id } &&
+                !event.hasEnded() &&
+                isWithinNextSevenDays(event.date, event.time)
         }
         .sortedWith(compareBy<Event> { it.date }.thenBy { it.time })
     val popularEvents = eventState.events
@@ -1108,6 +1819,10 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
                 event.reviews.map { it.rating }.average() in 4.5..5.0
         }
         .sortedByDescending { event -> event.reviews.map { it.rating }.average() }
+    val createdEvents = eventState.events.filter { it.creatorId == user.id }
+    val attendedEvents = eventState.events.count { event ->
+        event.registrations.any { it.userId == user.id }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -1119,7 +1834,12 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
                     IconButton({ navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
                     }
-                }
+                },
+                actions = {
+                    IconButton(onClick = { dataExpanded = !dataExpanded }) {
+                        Icon(Icons.Default.Settings, "Configuración del perfil")
+                    }
+                },
             )
         }
     ) { padding ->
@@ -1127,7 +1847,7 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
@@ -1137,6 +1857,86 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
                     isLoading = isLoading,
                     onChangePhoto = { imagePicker.launch(arrayOf("image/jpeg", "image/png")) }
                 )
+            }
+
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            RoundedCornerShape(20.dp),
+                        )
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    ProfileMetric(createdEvents.size.toString(), "Eventos creados")
+                    ProfileMetric(attendedEvents.toString(), "Eventos asistidos")
+                    ProfileMetric(eventState.events.sumOf { it.reviews.count { review -> review.userId == user.id } }.toString(), "Reseñas")
+                }
+            }
+
+            item {
+                Button(
+                    onClick = {
+                        dataExpanded = true
+                        editingData = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2F6B87)),
+                ) {
+                    Icon(Icons.Default.Edit, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Editar perfil", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        "Mis eventos",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF244B68),
+                    )
+                    TextButton(onClick = { navController.navigate("my_events") }) {
+                        Text("Ver todos", color = Color(0xFF567C8D))
+                        Icon(Icons.Default.ChevronRight, null, Modifier.size(18.dp))
+                    }
+                }
+            }
+
+            if (createdEvents.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Text(
+                            "Aún no has creado eventos.",
+                            modifier = Modifier.padding(18.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                items(
+                    createdEvents.take(3),
+                    key = { event -> event.id ?: event.title },
+                ) { event ->
+                    UpcomingEventCard(event) {
+                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
+                    }
+                }
             }
 
             item {
@@ -1194,95 +1994,6 @@ fun ProfileScreen(user: User, userViewModel: UserViewModel, navController: NavCo
                                     Icon(if (editingData) Icons.Default.Save else Icons.Default.Edit, null)
                                     Spacer(Modifier.width(8.dp))
                                     Text(if (editingData) "Guardar cambios" else "Actualizar datos")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                ProfileSectionCard(
-                    title = "Populares",
-                    subtitle = "Mis eventos con valoración de 4.5 a 5.0",
-                    icon = Icons.Default.Star,
-                    expanded = popularExpanded,
-                    onClick = { popularExpanded = !popularExpanded }
-                ) {
-                    AnimatedVisibility(
-                        visible = popularExpanded,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            if (popularEvents.isEmpty()) {
-                                Text(
-                                    "No tienes eventos populares todavía.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            } else {
-                                popularEvents.forEach { event ->
-                                    UpcomingEventCard(event) {
-                                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                ProfileSectionCard(
-                    title = "Próximos",
-                    subtitle = "Mis eventos de los próximos 7 días",
-                    icon = Icons.Default.Event,
-                    expanded = upcomingExpanded,
-                    onClick = { upcomingExpanded = !upcomingExpanded }
-                ) {
-                    AnimatedVisibility(
-                        visible = upcomingExpanded,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            when {
-                                eventState.isLoading && eventState.events.isEmpty() -> {
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 20.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(color = Color(0xFF567C8D))
-                                    }
-                                }
-
-                                upcomingEvents.isEmpty() -> {
-                                    Text(
-                                        "No tienes eventos próximos esta semana.",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    )
-                                }
-
-                                else -> upcomingEvents.forEach { event ->
-                                    UpcomingEventCard(event) {
-                                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
-                                    }
                                 }
                             }
                         }
@@ -1449,7 +2160,7 @@ private fun ProfileHeader(
             ) {
                 if (avatar.isNotBlank()) {
                     AsyncImage(
-                        model = avatar,
+                        model = avatar.fastImageUrl(),
                         contentDescription = "Foto de perfil",
                         modifier = Modifier
                             .fillMaxSize()
@@ -1561,6 +2272,24 @@ private fun ProfileSectionCard(
 }
 
 @Composable
+private fun ProfileMetric(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF244B68),
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
 private fun ProfileField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -1604,7 +2333,7 @@ private fun UpcomingEventCard(event: Event, onClick: () -> Unit) {
         ) {
             if (event.coverImage.isNotBlank()) {
                 AsyncImage(
-                    model = event.coverImage,
+                    model = event.coverImage.fastImageUrl(),
                     contentDescription = "Imagen de ${event.title}",
                     modifier = Modifier
                         .size(64.dp)
@@ -1642,9 +2371,9 @@ private fun UpcomingEventCard(event: Event, onClick: () -> Unit) {
     }
 }
 
-private fun isWithinNextSevenDays(date: String): Boolean = runCatching {
-    val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { isLenient = false }
-    val eventDate = format.parse(date) ?: return false
+private fun isWithinNextSevenDays(date: String, time: String): Boolean = runCatching {
+    val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { isLenient = false }
+    val eventDate = format.parse("$date $time") ?: return false
     val today = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
@@ -1657,11 +2386,23 @@ private fun isWithinNextSevenDays(date: String): Boolean = runCatching {
     !eventDate.before(today.time) && !eventDate.after(limit.time)
 }.getOrDefault(false)
 
-@Composable private fun EventFeedback(error: String?, message: String?, clear: () -> Unit) { if (error != null || message != null) LaunchedEffect(error, message) { /* El estado se visualiza en cada pantalla sin ocultar errores. */ } }
+@Composable
+private fun EventFeedback(
+    error: String?,
+    message: String?,
+    host: SnackbarHostState,
+    clear: () -> Unit,
+) {
+    LaunchedEffect(error, message) {
+        val text = error ?: message
+        if (text != null) {
+            host.showSnackbar(text)
+            clear()
+        }
+    }
+}
 @Composable private fun ReviewDialog(onDismiss: () -> Unit, save: (Int, String) -> Unit) { var rating by remember { mutableStateOf("") }; var comment by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Calificar evento") }, text = { Column { AppField(rating, { rating = it }, "Puntaje (1-5)", KeyboardType.Number); AppField(comment, { comment = it }, "Comentario", single = false) } }, confirmButton = { TextButton({ save(rating.toIntOrNull() ?: 0, comment) }) { Text("Publicar") } }, dismissButton = { TextButton(onDismiss) { Text("Cancelar") } }) }
 private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
-private fun hasFinished(date: String) = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date)?.before(Calendar.getInstance().time) == true }.getOrDefault(false)
-
 private fun generateQrCode(text: String): ImageBitmap? {
     return try {
         val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)
@@ -1681,27 +2422,26 @@ private fun generateQrCode(text: String): ImageBitmap? {
 @Composable
 fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
     val state by viewModel.uiState.collectAsState()
-    
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf("") }
-    
     val categories = listOf("Arte", "Deporte", "Tecnología", "Música", "Gastronomía", "Educación")
-    
-    // Filtrado combinado reactivo
     val filteredEvents = state.events.filter { event ->
-        val matchesName = event.title.contains(searchQuery, ignoreCase = true) || 
-                          event.description.contains(searchQuery, ignoreCase = true)
-        val matchesCategory = selectedCategory.isBlank() || event.category.equals(selectedCategory, ignoreCase = true)
+        val matchesName = event.title.contains(searchQuery, ignoreCase = true) ||
+            event.description.contains(searchQuery, ignoreCase = true) ||
+            event.place.contains(searchQuery, ignoreCase = true)
+        val matchesCategory = selectedCategory.isBlank() ||
+            event.category.equals(selectedCategory, ignoreCase = true)
         val matchesDate = selectedDate.isBlank() || event.date == selectedDate
-        
         matchesName && matchesCategory && matchesDate
-    }
+    }.filterNot { it.hasEnded() }
+        .sortedWith(compareBy<Event> { it.date }.thenBy { it.time })
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Buscar Eventos") },
+                title = { Text("Explorar eventos", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -1714,104 +2454,250 @@ fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
                             selectedCategory = ""
                             selectedDate = ""
                         }) {
-                            Text("Limpiar", color = MaterialTheme.colorScheme.primary)
+                            Text("Limpiar", color = Color(0xFF567C8D))
                         }
                     }
                 }
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Campo de búsqueda por Nombre/Texto
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Buscar por nombre") },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Selector de Fecha
-                val context = LocalContext.current
-                OutlinedButton(
-                    onClick = {
-                        val c = Calendar.getInstance()
-                        DatePickerDialog(context, { _, y, m, d ->
-                            selectedDate = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, d)
-                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = if (selectedDate.isBlank()) "Fecha" else selectedDate,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        "Encuentra tu próximo plan",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF244B68),
+                    )
+                    Text(
+                        "Explora eventos próximos y descubre nuevas experiencias.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Buscar por nombre, lugar o descripción") },
+                        leadingIcon = { Icon(Icons.Default.Search, null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, "Borrar búsqueda")
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF567C8D),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        ),
                     )
                 }
+            }
 
-                // Selector de Categoría (Menú desplegable simple)
-                var catExpanded by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedButton(
-                        onClick = { catExpanded = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (selectedCategory.isBlank()) "Categoría" else selectedCategory,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AssistChip(
+                        onClick = {
+                            val calendar = Calendar.getInstance()
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    selectedDate = String.format(
+                                        Locale.US,
+                                        "%04d-%02d-%02d",
+                                        year,
+                                        month + 1,
+                                        day,
+                                    )
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH),
+                            ).show()
+                        },
+                        label = {
+                            Text(if (selectedDate.isBlank()) "Fecha" else selectedDate)
+                        },
+                        leadingIcon = { Icon(Icons.Default.CalendarToday, null, Modifier.size(18.dp)) },
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    categories.forEach { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = {
+                                selectedCategory = if (selectedCategory == category) "" else category
+                            },
+                            label = { Text(category) },
+                            leadingIcon = {
+                                if (selectedCategory == category) {
+                                    Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                                }
+                            },
+                            shape = RoundedCornerShape(14.dp),
                         )
                     }
-                    DropdownMenu(expanded = catExpanded, onDismissRequest = { catExpanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Todas") },
-                            onClick = { selectedCategory = ""; catExpanded = false }
-                        )
-                        categories.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat) },
-                                onClick = { selectedCategory = cat; catExpanded = false }
+                }
+            }
+
+            item {
+                Text(
+                    "${filteredEvents.size} evento${if (filteredEvents.size == 1) "" else "s"} disponible${if (filteredEvents.size == 1) "" else "s"}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF244B68),
+                )
+            }
+
+            if (state.isLoading && state.events.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF244B68))
+                    }
+                }
+            } else if (filteredEvents.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.EventBusy,
+                                contentDescription = null,
+                                modifier = Modifier.size(44.dp),
+                                tint = Color(0xFF567C8D),
+                            )
+                            Text(
+                                "No encontramos eventos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "Prueba con otra búsqueda o elimina alguno de los filtros.",
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Resultados
-            if (filteredEvents.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No se encontraron eventos con los filtros seleccionados.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    itemsIndexed(filteredEvents, key = { index, event -> event.id ?: "search-$index" }) { _, event ->
-                        EventCard(event) {
-                            event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
-                        }
+                itemsIndexed(
+                    filteredEvents,
+                    key = { index, event -> event.id ?: "search-$index" },
+                ) { _, event ->
+                    SearchEventCard(event) {
+                        event.id?.let { navController.navigate("event_detail/${Uri.encode(it)}") }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchEventCard(event: Event, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (event.coverImage.isNotBlank()) {
+                AsyncImage(
+                    model = event.coverImage.fastImageUrl(),
+                    contentDescription = event.title,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFDDEAF0)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Event, null, tint = Color(0xFF406370))
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    event.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF244B68),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                EventInfoLine(
+                    Icons.Default.CalendarToday,
+                    "${event.date} · ${event.time.ifBlank { "Hora no definida" }}",
+                )
+                EventInfoLine(
+                    Icons.Default.LocationOn,
+                    event.place.ifBlank { "Lugar por confirmar" },
+                )
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (event.availableSlots > 0) {
+                        Color(0xFFDDF2E9)
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+                ) {
+                    Text(
+                        if (event.availableSlots > 0) {
+                            "${event.availableSlots} cupos disponibles"
+                        } else {
+                            "Sin cupos disponibles"
+                        },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (event.availableSlots > 0) Color(0xFF27705D) else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF567C8D))
         }
     }
 }
