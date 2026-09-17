@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,19 +38,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.p3.data.model.User
+import com.example.p3.ui.viewmodel.EventViewModel
 import com.example.p3.ui.viewmodel.UserViewModel
 
 @Composable
 fun NotificationsScreen(
     user: User,
     userViewModel: UserViewModel,
+    eventViewModel: EventViewModel,
     navController: NavController,
 ) {
     val notifications by userViewModel.notifications.collectAsState()
-    val visibleNotifications = notifications.filter { it.recipientId == user.id }
+    val eventState by eventViewModel.uiState.collectAsState()
+    val userId = user.id.orEmpty()
+    val visibleNotifications = notifications.filter { it.recipientId == userId }
 
     LaunchedEffect(Unit) {
         userViewModel.markNotificationsAsRead()
+    }
+
+    LaunchedEffect(eventState.events, userId) {
+        if (userId.isNotBlank()) {
+            eventViewModel.syncNotifications(userId, eventState.events)
+        }
     }
 
     Scaffold(
@@ -59,6 +70,21 @@ fun NotificationsScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { eventViewModel.loadEvents() },
+                        enabled = !eventState.isLoading,
+                    ) {
+                        if (eventState.isLoading) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(Icons.Default.Refresh, "Actualizar notificaciones")
+                        }
                     }
                 },
             )

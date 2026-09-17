@@ -118,7 +118,7 @@ private fun EvoriaApp(users: UserViewModel) {
             }
             composable("notifications") {
                 user?.let { current ->
-                    NotificationsScreen(current, users, navController)
+                    NotificationsScreen(current, users, events, navController)
                 }
             }
             composable("my_events") {
