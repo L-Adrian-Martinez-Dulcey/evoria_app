@@ -96,7 +96,7 @@ API (Retrofit / OkHttp)
 
 ## 🔔 Notificaciones y reportes
 
-Las notificaciones de nuevas inscripciones se almacenan localmente mediante DataStore, por lo que están pensadas para la demostración en un mismo dispositivo y no funcionan como notificaciones push entre dispositivos.
+Las notificaciones de nuevas inscripciones, reseñas y recordatorios se almacenan localmente mediante DataStore. Al cargar la lista de eventos, EVORIA sincroniza los avisos derivados de las inscripciones y reseñas que existen en MockAPI, y crea un recordatorio cuando un evento inscrito comienza dentro de la próxima hora. Esta solución funciona al abrir o actualizar la aplicación; no reemplaza las notificaciones push de un backend.
 
 Desde el detalle de un evento propio, el organizador puede seleccionar **Generar PDF del evento** y elegir dónde guardar un reporte con la marca EVORIA, la información principal del evento y los asistentes inscritos con sus datos disponibles.
 

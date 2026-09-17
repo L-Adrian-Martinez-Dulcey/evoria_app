@@ -65,29 +65,38 @@ class SessionManager(private val context: Context) {
 
     suspend fun addNotification(notification: AppNotification) {
         context.sessionDataStore.edit { preferences ->
-            val current = runCatching {
-                gson.fromJson<List<AppNotification>>(
-                    preferences[notificationsKey].orEmpty(),
-                    object : TypeToken<List<AppNotification>>() {}.type,
-                ) ?: emptyList()
-            }.getOrDefault(emptyList())
+            val current = readNotifications(preferences[notificationsKey])
             preferences[notificationsKey] = gson.toJson(
                 listOf(notification) + current.take(49),
             )
         }
     }
 
+    suspend fun addNotificationIfAbsent(notification: AppNotification) {
+        context.sessionDataStore.edit { preferences ->
+            val current = readNotifications(preferences[notificationsKey])
+            if (current.none { it.id == notification.id }) {
+                preferences[notificationsKey] = gson.toJson(
+                    listOf(notification) + current.take(49),
+                )
+            }
+        }
+    }
+
     suspend fun markNotificationsAsRead() {
         context.sessionDataStore.edit { preferences ->
-            val current = runCatching {
-                gson.fromJson<List<AppNotification>>(
-                    preferences[notificationsKey].orEmpty(),
-                    object : TypeToken<List<AppNotification>>() {}.type,
-                ) ?: emptyList()
-            }.getOrDefault(emptyList())
+            val current = readNotifications(preferences[notificationsKey])
             preferences[notificationsKey] = gson.toJson(current.map { it.copy(read = true) })
         }
     }
+
+    private fun readNotifications(json: String?): List<AppNotification> =
+        runCatching {
+            gson.fromJson<List<AppNotification>>(
+                json.orEmpty(),
+                object : TypeToken<List<AppNotification>>() {}.type,
+            ) ?: emptyList()
+        }.getOrDefault(emptyList())
 
     suspend fun clear() {
         context.sessionDataStore.edit {

@@ -51,6 +51,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val events = repository.getEvents()
             _uiState.value = _uiState.value.copy(events = events, isLoading = false)
+            sessionManager.getUserId()?.let { syncNotifications(it, events) }
         } catch (error: Exception) {
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
@@ -251,7 +252,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         message = successMessage,
                     )
                     if (notifyCreator && updated.creatorId.isNotBlank() && updated.creatorId != userId) {
-                        sessionManager.addNotification(
+                        sessionManager.addNotificationIfAbsent(
                             AppNotification(
                                 id = UUID.randomUUID().toString(),
                                 recipientId = updated.creatorId,
@@ -285,7 +286,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         data class Rejected(val message: String) : RegistrationMutation
     }
 
-    fun addReview(event: Event, userId: String, rating: Int, comment: String) {
+    fun addReview(
+        event: Event,
+        userId: String,
+        userName: String = "Un usuario",
+        rating: Int,
+        comment: String,
+    ) {
         val eventId = event.id ?: return fail("No fue posible identificar el evento.")
         viewModelScope.launch {
             if (_uiState.value.isLoading) return@launch
@@ -316,7 +323,20 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         )
                         replaceEvent(updated)
                         _uiState.value = _uiState.value.copy(message = "Reseña publicada")
+                        if (updated.creatorId.isNotBlank() && updated.creatorId != userId) {
+                            sessionManager.addNotificationIfAbsent(
+                                AppNotification(
+                                    id = "review:$eventId:${updated.reviews.last().id}",
+                                    recipientId = updated.creatorId,
+                                    title = "Nueva reseña",
+                                    message = "$userName dejó una reseña de ${updated.title}.",
+                                    eventId = eventId,
+                                    createdAt = now(),
+                                ),
+                            )
+                        }
                     }
+
                 }
             } catch (error: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -324,6 +344,52 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } finally {
                 _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
+    fun syncNotifications(userId: String, events: List<Event> = _uiState.value.events) {
+        viewModelScope.launch {
+            events.forEach { event ->
+                val eventId = event.id ?: return@forEach
+                if (event.creatorId == userId) {
+                    event.registrations.forEach { registration ->
+                        sessionManager.addNotificationIfAbsent(
+                            AppNotification(
+                                id = "registration:$eventId:${registration.id}",
+                                recipientId = userId,
+                                title = "Nueva inscripción",
+                                message = "Un usuario se inscribió a tu evento \"${event.title}\".",
+                                eventId = eventId,
+                                createdAt = registration.registrationDate.ifBlank { now() },
+                            ),
+                        )
+                    }
+                    event.reviews.forEach { review ->
+                        sessionManager.addNotificationIfAbsent(
+                            AppNotification(
+                                id = "review:$eventId:${review.id}",
+                                recipientId = userId,
+                                title = "Nueva reseña",
+                                message = "Un usuario dejó una reseña de ${event.title}.",
+                                eventId = eventId,
+                                createdAt = now(),
+                            ),
+                        )
+                    }
+                }
+                if (event.registrations.any { it.userId == userId } && event.startsWithinNextHour()) {
+                    sessionManager.addNotificationIfAbsent(
+                        AppNotification(
+                            id = "reminder:$eventId:${event.date}_${event.time}",
+                            recipientId = userId,
+                            title = "Evento próximo",
+                            message = "Falta menos de una hora para que comience \"${event.title}\".",
+                            eventId = eventId,
+                            createdAt = now(),
+                        ),
+                    )
+                }
             }
         }
     }

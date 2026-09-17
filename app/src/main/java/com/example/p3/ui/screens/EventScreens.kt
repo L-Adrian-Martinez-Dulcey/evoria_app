@@ -89,6 +89,9 @@ fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, nav
         )
         .take(5)
     EventFeedback(state.error, state.message, feedbackHost) { viewModel.clearMessage() }
+    LaunchedEffect(currentUser?.id, state.events) {
+        currentUser?.id?.let { viewModel.syncNotifications(it, state.events) }
+    }
     Scaffold(
         snackbarHost = { SnackbarHost(feedbackHost) },
     ) { padding ->
@@ -865,7 +868,10 @@ fun EventDetailScreen(
             },
         )
     }
-    if (showReview) ReviewDialog(onDismiss = { showReview = false }) { rating, comment -> viewModel.addReview(event, user.id.orEmpty(), rating, comment); showReview = false }
+    if (showReview) ReviewDialog(onDismiss = { showReview = false }) { rating, comment ->
+        viewModel.addReview(event, user.id.orEmpty(), user.name, rating, comment)
+        showReview = false
+    }
 }
 
 @Composable private fun DetailLine(label: String, value: String) { Text("$label: $value") }

@@ -24,15 +24,25 @@ data class Event(
     @SerializedName("reviews") val reviews: List<Review> = emptyList(),
 ) {
     fun hasEnded(now: Date = Calendar.getInstance().time): Boolean = runCatching {
-        if (date.isBlank() || time.isBlank()) return false
+        startsAt()?.before(now) == true
+    }.getOrDefault(false)
+
+    fun startsAt(): Date? {
+        if (date.isBlank() || time.isBlank()) return null
         val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply {
             isLenient = false
         }
         val value = "$date $time"
         val position = ParsePosition(0)
-        val parsed = format.parse(value, position)
-        parsed != null && position.index == value.length && parsed.before(now)
-    }.getOrDefault(false)
+        return format.parse(value, position)
+            ?.takeIf { position.index == value.length }
+    }
+
+    fun startsWithinNextHour(now: Date = Calendar.getInstance().time): Boolean {
+        val start = startsAt() ?: return false
+        val difference = start.time - now.time
+        return difference > 0 && difference <= 60 * 60 * 1000L
+    }
 }
 
 data class Registration(
