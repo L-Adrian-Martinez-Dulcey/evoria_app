@@ -16,8 +16,6 @@ object RetrofitClient {
 
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor(logging)
-        // Menos de un segundo no es suficiente en redes móviles ni para MockAPI.
-        // Estos límites cubren conexión lenta y operaciones de creación/actualización.
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)

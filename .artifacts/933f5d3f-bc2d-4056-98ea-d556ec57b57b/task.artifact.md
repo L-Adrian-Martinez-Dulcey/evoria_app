@@ -1,7 +1,5 @@
-# Task List - Documentación Integral EVORIA
+# Task List - Mostrar Cupos Disponibles
 
-- [ ] Analizar estructura de modelos y repositorios.
-- [ ] Verificar endpoints de APIs (MockAPI y GitHub).
-- [ ] Documentar flujo de Onboarding y Autenticación.
-- [ ] Detallar gestión de imágenes y configuración local.
-- [ ] Actualizar `README.md` con el nuevo diseño visual y contenido verificado.
+- [x] Agregar indicador de cupos disponibles en `EventDetailScreen`
+- [x] Asegurar coherencia visual con el resto de la aplicación
+- [x] Verificar que la información se actualice correctamente

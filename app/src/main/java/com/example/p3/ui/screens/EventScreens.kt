@@ -522,16 +522,32 @@ fun EventDetailScreen(
                             Icons.Default.LocationOn,
                             event.place.ifBlank { "Lugar por confirmar" },
                         )
-                        if (event.category.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (event.category.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = Color(0xFFDDEAF0),
+                                ) {
+                                    Text(
+                                        event.category,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color(0xFF406370),
+                                    )
+                                }
+                            }
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = Color(0xFFDDEAF0),
+                                color = if (event.availableSlots > 0) Color(0xFFDDF2E9) else MaterialTheme.colorScheme.errorContainer,
                             ) {
                                 Text(
-                                    event.category,
+                                    text = if (event.availableSlots > 0) "${event.availableSlots} cupos" else "Sin cupos",
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = Color(0xFF406370),
+                                    color = if (event.availableSlots > 0) Color(0xFF27705D) else MaterialTheme.colorScheme.error,
                                 )
                             }
                         }

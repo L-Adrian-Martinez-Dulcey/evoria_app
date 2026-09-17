@@ -1,26 +1,22 @@
-# Redirection to RegisterScreen Fixed
+# Visualización de Cupos Disponibles en Detalle
 
-I have fixed the issue where the app incorrectly redirected to the Login screen instead of the Register screen when clicking "Crear cuenta" in the Onboarding flow.
+He implementado un indicador visual para los cupos disponibles dentro de la pantalla de detalle del evento. Esto permite que los usuarios vean rápidamente la disponibilidad antes de inscribirse.
 
-## Changes Made
+## Cambios Realizados
 
-### Core / Navigation
-- **[MainActivity.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)**:
-    - Wrapped the `startDestination` calculation in a `remember` block.
-    - Added the `remember` import and fixed minor syntax issues in the navigation graph.
-    - **Reason**: By using `remember`, the `NavHost` maintains a stable `startDestination` for the duration of the current app session. Previously, as soon as `onboardingDone` changed to `true` (via `completeOnboarding()`), the `NavHost` would recompose and reset its graph to start at `"login"`, effectively canceling the manual navigation to `"register"`.
+### UI y Diseño
+- **[EventScreens.kt](file:///C:/EvoriaApp/app/src/main/java/com/example/p3/ui/screens/EventScreens.kt)**:
+    - Se agregó un "Chip" estilizado dentro de la tarjeta de información principal de `EventDetailScreen`.
+    - **Lógica de Colores**:
+        - **Verde**: Si hay cupos disponibles (ej. "15 cupos").
+        - **Rojo**: Si el evento está lleno ("Sin cupos").
+    - Se organizó el diseño usando una `Row` para que la categoría y los cupos aparezcan uno al lado del otro de forma elegante.
 
-## Verification Results
+## Verificación
 
-### Build Status
-> [!NOTE]
-> The project compiles successfully.
-- Ran `./gradlew :app:compileDebugKotlin`: **SUCCESS**
+### Manual
+1.  **Con cupos**: Al abrir un evento con disponibilidad, aparece un indicador verde con el número de cupos.
+2.  **Sin cupos**: Si los cupos llegan a 0, el indicador cambia a rojo con el texto "Sin cupos".
+3.  **Coherencia**: El estilo es idéntico al utilizado en la pantalla de búsqueda para mantener la unidad visual de la marca **EVORIA**.
 
-### Manual Verification Path
-1. **Fresh Install**: Open the app -> Onboarding starts.
-2. **Action**: Go to the last page and click **"Crear cuenta"**.
-3. **Outcome**: The app now stays on the **RegisterScreen** as intended.
-4. **Subsequent Run**: Close the app and reopen it. It will now correctly start at the **LoginScreen** because the onboarding completion was persisted.
-
-render_diffs(file:///C:/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)
+render_diffs(file:///C:/EvoriaApp/app/src/main/java/com/example/p3/ui/screens/EventScreens.kt)
