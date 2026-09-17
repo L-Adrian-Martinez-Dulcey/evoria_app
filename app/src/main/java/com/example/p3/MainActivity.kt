@@ -116,6 +116,11 @@ private fun EvoriaApp(users: UserViewModel) {
             composable("event_search") {
                 EventSearchScreen(events, navController)
             }
+            composable("notifications") {
+                user?.let { current ->
+                    NotificationsScreen(current, users, navController)
+                }
+            }
             composable("my_events") {
                 user?.let { current ->
                     AppScaffold(current, users, navController) {

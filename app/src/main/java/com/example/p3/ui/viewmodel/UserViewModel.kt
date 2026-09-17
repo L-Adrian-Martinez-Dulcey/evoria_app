@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.p3.data.api.GithubRetrofitClient
 import com.example.p3.data.api.RetrofitClient
 import com.example.p3.data.model.User
+import com.example.p3.data.model.AppNotification
 import com.example.p3.data.repository.ImageRepository
 import com.example.p3.data.repository.UserRepository
 import com.example.p3.data.session.SessionManager
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 
 class UserViewModel(application: Application) : AndroidViewModel(application) {
@@ -60,6 +63,9 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isDarkMode = MutableStateFlow(false)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+    val notifications: StateFlow<List<AppNotification>> =
+        sessionManager.notifications
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun toggleDarkMode() {
         val enabled = !_isDarkMode.value
@@ -67,6 +73,10 @@ class UserViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             sessionManager.saveDarkMode(enabled)
         }
+    }
+
+    fun markNotificationsAsRead() {
+        viewModelScope.launch { sessionManager.markNotificationsAsRead() }
     }
 
     init {

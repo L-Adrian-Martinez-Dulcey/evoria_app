@@ -45,6 +45,8 @@ El núcleo funcional de la aplicación permite un control total sobre las activi
 *   **Búsqueda y Exploración:** Pantalla dedicada para filtrar eventos por **nombre, categoría o fecha** de forma reactiva.
 *   **⭐ Reseñas y Calificaciones:** Sistema de feedback para eventos ya finalizados, permitiendo una valoración de 1 a 5 estrellas y comentarios.
 *   **📍 Código QR:** Generación instantánea de códigos QR basados en la ubicación del evento, vinculando directamente a **Google Maps**.
+*   **🔔 Notificaciones:** El creador recibe un aviso local cuando otro usuario se inscribe en uno de sus eventos.
+*   **📄 Reportes PDF:** El creador puede generar un PDF organizado con los datos del evento y la lista de asistentes inscritos.
 
 ## 🖼️ Gestión de Imágenes (GitHub API)
 
@@ -90,7 +92,13 @@ API (Retrofit / OkHttp)
 *   **Redes:** Retrofit 2 & OkHttpClient (con Logging Interceptor).
 *   **Imágenes:** Coil (Carga asíncrona y caché eficiente).
 *   **Persistencia:** DataStore Preferences.
-*   **Utilidades:** ZXing (Generación de QR), Gson (Serialización).
+*   **Utilidades:** ZXing (Generación de QR), Gson (Serialización), `PdfDocument` (reportes PDF).
+
+## 🔔 Notificaciones y reportes
+
+Las notificaciones de nuevas inscripciones se almacenan localmente mediante DataStore, por lo que están pensadas para la demostración en un mismo dispositivo y no funcionan como notificaciones push entre dispositivos.
+
+Desde el detalle de un evento propio, el organizador puede seleccionar **Generar PDF del evento** y elegir dónde guardar un reporte con la marca EVORIA, la información principal del evento y los asistentes inscritos con sus datos disponibles.
 
 ## 🎨 Identidad Visual
 

@@ -5,6 +5,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.p3.data.model.AppNotification
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -16,6 +19,8 @@ class SessionManager(private val context: Context) {
     private val userIdKey = stringPreferencesKey("user_id")
     private val onboardingKey = booleanPreferencesKey("onboarding_completed")
     private val darkModeKey = booleanPreferencesKey("dark_mode")
+    private val notificationsKey = stringPreferencesKey("notifications")
+    private val gson = Gson()
 
     suspend fun saveUserId(id: String) {
         context.sessionDataStore.edit {
@@ -48,10 +53,47 @@ class SessionManager(private val context: Context) {
         }
     }
 
+    val notifications: Flow<List<AppNotification>> =
+        context.sessionDataStore.data.map { preferences ->
+            runCatching {
+                gson.fromJson<List<AppNotification>>(
+                    preferences[notificationsKey].orEmpty(),
+                    object : TypeToken<List<AppNotification>>() {}.type,
+                ) ?: emptyList()
+            }.getOrDefault(emptyList())
+        }
+
+    suspend fun addNotification(notification: AppNotification) {
+        context.sessionDataStore.edit { preferences ->
+            val current = runCatching {
+                gson.fromJson<List<AppNotification>>(
+                    preferences[notificationsKey].orEmpty(),
+                    object : TypeToken<List<AppNotification>>() {}.type,
+                ) ?: emptyList()
+            }.getOrDefault(emptyList())
+            preferences[notificationsKey] = gson.toJson(
+                listOf(notification) + current.take(49),
+            )
+        }
+    }
+
+    suspend fun markNotificationsAsRead() {
+        context.sessionDataStore.edit { preferences ->
+            val current = runCatching {
+                gson.fromJson<List<AppNotification>>(
+                    preferences[notificationsKey].orEmpty(),
+                    object : TypeToken<List<AppNotification>>() {}.type,
+                ) ?: emptyList()
+            }.getOrDefault(emptyList())
+            preferences[notificationsKey] = gson.toJson(current.map { it.copy(read = true) })
+        }
+    }
+
     suspend fun clear() {
         context.sessionDataStore.edit {
             it.remove(userIdKey)
             it[onboardingKey] = false
+            it.remove(notificationsKey)
         }
     }
 }

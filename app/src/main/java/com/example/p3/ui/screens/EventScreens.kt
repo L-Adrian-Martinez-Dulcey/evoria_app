@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,11 +50,15 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.pdf.PdfDocument
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.p3.data.model.Event
 import com.example.p3.data.model.User
+import com.example.p3.data.model.AppNotification
 import com.example.p3.data.image.fastImageUrl
 import com.example.p3.ui.viewmodel.EventViewModel
 import com.example.p3.ui.viewmodel.UserViewModel
@@ -127,7 +132,7 @@ fun EventHomeScreen(viewModel: EventViewModel, userViewModel: UserViewModel, nav
                                     contentDescription = "Cambiar modo de tema",
                                 )
                             }
-                            IconButton(onClick = { navController.navigate("profile") }) {
+                            IconButton(onClick = { navController.navigate("notifications") }) {
                                 Icon(Icons.Default.NotificationsNone, "Notificaciones")
                             }
                         }
@@ -409,6 +414,25 @@ fun EventDetailScreen(
     var qrBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var qrError by remember { mutableStateOf<String?>(null) }
     val detailSnackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val pdfLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf"),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    createEventPdf(event, users).writeTo(output)
+                } ?: error("No fue posible abrir el archivo.")
+            }.onSuccess {
+                snackbarScope.launch { detailSnackbarHostState.showSnackbar("PDF generado correctamente") }
+            }.onFailure {
+                snackbarScope.launch {
+                    detailSnackbarHostState.showSnackbar("No fue posible generar el PDF: ${it.message}")
+                }
+            }
+        }
+    }
 
     LaunchedEffect(state.message, state.error) {
         state.message?.let { detailSnackbarHostState.showSnackbar(it) }
@@ -694,6 +718,20 @@ fun EventDetailScreen(
 
             item {
                 if (isCreator) {
+                    Button(
+                        onClick = {
+                            pdfLauncher.launch(
+                                "EVORIA_${event.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.pdf"
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF244B68)),
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Generar PDF del evento")
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(
                             { navController.navigate("event_form/${event.id}") },
@@ -717,7 +755,7 @@ fun EventDetailScreen(
                         Button(
                             onClick = {
                                 if (isRegistered) confirmUnregister = true
-                                else viewModel.register(event, user.id.orEmpty())
+                                else viewModel.register(event, user.id.orEmpty(), user.name)
                             },
                             enabled = !state.isLoading && (isRegistered || event.availableSlots > 0),
                             modifier = Modifier.fillMaxWidth(),
@@ -2403,6 +2441,85 @@ private fun EventFeedback(
 }
 @Composable private fun ReviewDialog(onDismiss: () -> Unit, save: (Int, String) -> Unit) { var rating by remember { mutableStateOf("") }; var comment by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Calificar evento") }, text = { Column { AppField(rating, { rating = it }, "Puntaje (1-5)", KeyboardType.Number); AppField(comment, { comment = it }, "Comentario", single = false) } }, confirmButton = { TextButton({ save(rating.toIntOrNull() ?: 0, comment) }) { Text("Publicar") } }, dismissButton = { TextButton(onDismiss) { Text("Cancelar") } }) }
 private fun now() = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
+
+private fun createEventPdf(event: Event, users: List<User>): PdfDocument {
+    val document = PdfDocument()
+    val pageWidth = 595
+    val pageHeight = 842
+    val margin = 42f
+    val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(36, 75, 104)
+        textSize = 22f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    val sectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(36, 75, 104)
+        textSize = 14f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.DKGRAY
+        textSize = 11f
+    }
+    val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.rgb(86, 124, 141)
+        textSize = 18f
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    var pageNumber = 1
+    var page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+    var canvas = page.canvas
+    var y = 48f
+
+    fun nextPage() {
+        document.finishPage(page)
+        pageNumber += 1
+        page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
+        canvas = page.canvas
+        y = 48f
+        canvas.drawText("EVORIA", margin, y, logoPaint)
+        y += 32f
+    }
+
+    fun line(text: String, paint: Paint = bodyPaint, spacing: Float = 18f) {
+        if (y > pageHeight - 55) nextPage()
+        canvas.drawText(text.take(92), margin, y, paint)
+        y += spacing
+    }
+
+    canvas.drawText("EVORIA", margin, y, logoPaint)
+    y += 42f
+    line("Reporte del evento", sectionPaint, 26f)
+    line(event.title, titlePaint, 32f)
+    line("Fecha: ${event.date} · Hora: ${event.time.ifBlank { "No definida" }}")
+    line("Lugar: ${event.place.ifBlank { "No definido" }}")
+    line("Categoría: ${event.category.ifBlank { "Sin categoría" }}")
+    line("Cupos disponibles: ${event.availableSlots}")
+    y += 8f
+    line("Descripción", sectionPaint, 22f)
+    event.description.ifBlank { "Sin descripción." }
+        .chunked(92)
+        .forEach { line(it, bodyPaint, 16f) }
+    y += 10f
+    line("Asistentes inscritos (${event.registrations.size})", sectionPaint, 24f)
+    if (event.registrations.isEmpty()) {
+        line("No hay asistentes inscritos.", bodyPaint)
+    } else {
+        event.registrations.forEachIndexed { index, registration ->
+            if (y > pageHeight - 70) nextPage()
+            val attendee = users.firstOrNull { it.id == registration.userId }
+            val name = attendee?.name?.ifBlank { "Usuario ${index + 1}" } ?: "Usuario ${index + 1}"
+            val email = attendee?.email?.ifBlank { "Correo no disponible" } ?: "Correo no disponible"
+            line("${index + 1}. $name", bodyPaint, 16f)
+            line("   $email · Inscrito: ${registration.registrationDate.take(10)}", bodyPaint, 16f)
+            y += 4f
+        }
+    }
+    canvas.drawText("Documento generado por EVORIA", margin, pageHeight - 28f, bodyPaint)
+    document.finishPage(page)
+    return document
+}
+
 private fun generateQrCode(text: String): ImageBitmap? {
     return try {
         val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 512, 512)
@@ -2446,6 +2563,7 @@ fun EventSearchScreen(viewModel: EventViewModel, navController: NavController) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
+
                 },
                 actions = {
                     if (searchQuery.isNotBlank() || selectedCategory.isNotBlank() || selectedDate.isNotBlank()) {
@@ -2655,6 +2773,7 @@ private fun SearchEventCard(event: Event, onClick: () -> Unit) {
                 ) {
                     Icon(Icons.Default.Event, null, tint = Color(0xFF406370))
                 }
+
             }
             Spacer(Modifier.width(14.dp))
             Column(
@@ -2697,7 +2816,7 @@ private fun SearchEventCard(event: Event, onClick: () -> Unit) {
                     )
                 }
             }
-            Icon(Icons.Default.ChevronRight, null, tint = Color(0xFF567C8D))
+
         }
     }
 }

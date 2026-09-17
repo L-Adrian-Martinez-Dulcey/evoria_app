@@ -9,9 +9,11 @@ import com.example.p3.data.api.RetrofitClient
 import com.example.p3.data.model.Event
 import com.example.p3.data.model.Registration
 import com.example.p3.data.model.Review
+import com.example.p3.data.model.AppNotification
 import com.example.p3.data.repository.EventRepository
 import com.example.p3.data.repository.ImageRepository
 import com.example.p3.data.validation.EventValidator
+import com.example.p3.data.session.SessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +39,7 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         application.contentResolver,
         GithubRetrofitClient.apiService,
     )
+    private val sessionManager = SessionManager(application)
     private val _uiState = MutableStateFlow(EventUiState())
     val uiState: StateFlow<EventUiState> = _uiState.asStateFlow()
     private val registrationMutationMutex = Mutex()
@@ -159,11 +162,17 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
-    fun register(event: Event, userId: String) = viewModelScope.launch {
+    fun register(event: Event, userId: String, userName: String = "Un usuario") = viewModelScope.launch {
         val eventId = event.id ?: return@launch
         registrationMutationMutex.withLock {
             if (_uiState.value.isLoading) return@withLock
-            mutateRegistration(eventId, "Inscripción realizada") { latest ->
+            mutateRegistration(
+                eventId = eventId,
+                userId = userId,
+                userName = userName,
+                successMessage = "Inscripción realizada",
+                notifyCreator = true,
+            ) { latest ->
                 when {
                     latest.creatorId == userId ->
                         RegistrationMutation.Rejected("No puedes inscribirte a tu propio evento.")
@@ -194,7 +203,13 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         val eventId = event.id ?: return@launch
         registrationMutationMutex.withLock {
             if (_uiState.value.isLoading) return@withLock
-            mutateRegistration(eventId, "Inscripción cancelada correctamente.") { latest ->
+            mutateRegistration(
+                eventId = eventId,
+                userId = userId,
+                userName = "Usuario",
+                successMessage = "Inscripción cancelada correctamente.",
+                notifyCreator = false,
+            ) { latest ->
                 if (latest.registrations.none { it.userId == userId }) {
                     RegistrationMutation.Rejected("No estás inscrito en este evento.")
                 } else {
@@ -211,7 +226,10 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun mutateRegistration(
         eventId: String,
+        userId: String,
+        userName: String,
         successMessage: String,
+        notifyCreator: Boolean,
         mutation: (Event) -> RegistrationMutation,
     ) {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, message = null)
@@ -232,6 +250,18 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
                         isLoading = false,
                         message = successMessage,
                     )
+                    if (notifyCreator && updated.creatorId.isNotBlank() && updated.creatorId != userId) {
+                        sessionManager.addNotification(
+                            AppNotification(
+                                id = UUID.randomUUID().toString(),
+                                recipientId = updated.creatorId,
+                                title = "Nueva inscripción",
+                                message = "$userName se inscribió a tu evento \"${updated.title}\".",
+                                eventId = eventId,
+                                createdAt = now(),
+                            )
+                        )
+                    }
                 }
             }
         } catch (error: Exception) {
