@@ -12,10 +12,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
+// Almacena la sesión del usuario en DataStore para persistir datos locales del app.
 private val Context.sessionDataStore by preferencesDataStore(name = "evoria_session")
 
 class SessionManager(private val context: Context) {
 
+    // Claves para guardar información básica de la sesión y preferencias del usuario.
     private val userIdKey = stringPreferencesKey("user_id")
     private val onboardingKey = booleanPreferencesKey("onboarding_completed")
     private val darkModeKey = booleanPreferencesKey("dark_mode")

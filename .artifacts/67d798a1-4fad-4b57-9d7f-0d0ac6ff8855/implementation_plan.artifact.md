@@ -1,29 +1,42 @@
-# Plan para Sincronizar con Recurso `Evento` en MockAPI
+# Plan de Documentación Visual para Exposición (Persona 3)
 
-El error HTTP 400 se debe a una discrepancia entre el nombre del recurso en la API y los nombres de los campos enviados. Según tu indicación, el recurso se llama `Evento` y tiene los campos `id`, `name`, `avatar` y `description`.
+El objetivo es añadir comentarios técnicos descriptivos en los archivos clave del proyecto para facilitar la explicación del Stack Tecnológico, Arquitectura (MVVM) y Trabajo Colaborativo durante la exposición.
 
 ## User Review Required
 
-> [!IMPORTANT]
-> Dado que MockAPI solo tiene los campos `id`, `name`, `avatar` y `description`, el resto de la información del evento (fecha, hora, lugar, etc.) **no se guardará en el servidor** a menos que agregues esos campos manualmente en la configuración de MockAPI.
-> Por ahora, mapearemos los campos principales para que la aplicación funcione y deje de dar el error 400.
+> [!NOTE]
+> Estos comentarios están redactados de forma profesional y técnica. Se han colocado en puntos estratégicos donde la audiencia suele prestar atención al revisar código fuente.
 
 ## Proposed Changes
 
-### [Component Name] Data & API
+### [Component Name] Stack Tecnológico y Configuración
+
+#### [MODIFY] [build.gradle.kts](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/build.gradle.kts)
+- Comentar bloques de dependencias: Material 3, Retrofit (REST), Coil (Imágenes), DataStore (Persistencia) y ZXing (QR).
+
+#### [MODIFY] [Theme.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/ui/theme/Theme.kt), [Color.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/ui/theme/Color.kt), [Type.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/ui/theme/Type.kt)
+- Explicar la implementación de Material Design 3, soporte para temas dinámicos y tipografía personalizada (Tinos).
+
+### [Component Name] Arquitectura y Lógica (MVVM)
+
+#### [MODIFY] [MainActivity.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/MainActivity.kt)
+- Documentar el uso de **Navigation Compose** para el control declarativo de rutas.
+
+#### [MODIFY] [EventViewModel.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/ui/viewmodel/EventViewModel.kt)
+- Resaltar el patrón **MVVM**, el uso de `StateFlow` para estados reactivos y **Corrutinas** para llamadas asíncronas seguras.
 
 #### [MODIFY] [ApiService.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/data/api/ApiService.kt)
-- Cambiar el endpoint de `event` a `Evento` (respetando la mayúscula).
+- Comentar la definición de la interfaz para **Retrofit** y la comunicación con servicios REST.
 
-#### [MODIFY] [Event.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/data/model/Event.kt)
-- Mapear `title` a `name` usando `@SerializedName("name")`.
-- Mapear `coverImage` a `avatar` usando `@SerializedName("avatar")`.
-- Mantener `id` y `description` como están.
+### [Component Name] UI y Funcionalidades
+
+#### [MODIFY] [EventScreens.kt](file:///C:/Users/USUARIO/AndroidStudioProjects/EvoriaApp/app/src/main/java/com/example/p3/ui/screens/EventScreens.kt)
+- Comentar componentes de Jetpack Compose, integración de **Coil** y generación de **QR**.
 
 ## Verification Plan
 
 ### Automated Tests
-- Compilar la aplicación para verificar que los cambios no rompan la lógica interna.
+- Ejecutar `gradle assembleDebug` para asegurar que los comentarios no introdujeron errores de sintaxis (altamente improbable).
 
 ### Manual Verification
-- Intentar guardar un evento. Al usar el endpoint `Evento` y los nombres de campos correctos (`name` y `avatar`), el servidor debería responder con un HTTP 201 (Creado) en lugar de un 400.
+- Abrir los archivos modificados y verificar que los comentarios sean claros y sirvan como apoyo para el guion de la exposición.

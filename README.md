@@ -138,3 +138,30 @@ Requisitos mínimos: **Android 7.0 (API 24)**.
 
 ---
 © 2026 EVORIA - Gestión Profesional de Eventos.
+
+---
+
+# Otros Proyectos Relacionados
+
+## 📱 App Lector QR y Vista Previa de Enlaces
+
+Una aplicación móvil nativa para Android moderna, rápida y segura diseñada para escanear códigos QR de forma eficiente, mantener un registro local de lecturas y ofrecer enriquecimiento de contenido mediante vistas previas automáticas de enlaces web.
+
+### 🚀 Características Principales
+*   **Escaneo Inteligente sin Fricción:** Utiliza la API de escaneo de Google Play Services, permitiendo digitalizar códigos QR sin necesidad de solicitar permisos intrusivos de cámara al usuario.
+*   **Arquitectura Robusta:** Implementación de la arquitectura recomendada por Google: **MVVM (Model-View-ViewModel)** acoplada con componentes limpios de repositorio y capas de datos separadas.
+*   **Vistas Previas en Tiempo Real (Link Preview):** Cuando se detecta un código QR con un enlace web compatible, la aplicación realiza una consulta asíncrona a un servicio API REST para recuperar y mostrar el título y la descripción del sitio antes de abrirlo.
+*   **Historial Local Interactivo:** Conserva un registro ordenado de los últimos 30 elementos escaneados mediante persistencia local indexada por estructuras JSON, permitiendo volver a consultar, copiar al portapapeles o redirigir en cualquier momento.
+*   **Navegación Intuitiva:** Interfaz multi-pantalla optimizada mediante barras de navegación inferior fluidas.
+
+### 🛠️ Tecnologías y Librerías Utilizadas
+*   **Kotlin:** Lenguaje de programación principal, utilizando características avanzadas como Funciones de Suspensión y Programación Funcional.
+*   **Jetpack Compose & Material 3:** Kit de herramientas moderno para el diseño e implementación de una interfaz de usuario completamente declarativa, reactiva y adaptativa.
+*   **Google Play Services Code Scanner (ML Kit Vision):** Motor de alto rendimiento para el procesamiento de imágenes y reconocimiento de códigos de barras/QR en segundo plano.
+*   **Retrofit & Gson Converter:** Cliente HTTP seguro para el consumo asíncrono de APIs REST y la deserialización automática de formatos JSON a objetos de datos nativos.
+*   **Kotlin Coroutines & Flow:** Gestión eficiente de tareas en segundo plano de manera asíncrona y no bloqueante para flujos de estado de UI (`StateFlow`).
+*   **Jetpack Navigation Compose:** Controlador centralizado para gestionar el flujo de navegación entre pantallas mediante rutas estructuradas.
+*   **SharedPreferences (org.json):** Almacenamiento local persistente y ligero para la gestión de datos persistentes del historial de la aplicación.
+
+> [!TIP]
+> Puedes encontrar el repositorio de esta aplicación aquí: [QR_app.git](https://github.com/L-Adrian-Martinez-Dulcey/QR_app.git)
